@@ -16,6 +16,7 @@ use bdk_wallet::bitcoin::Network;
 use bdk_wallet::bitcoin::OutPoint as BdkOutPoint;
 use bdk_wallet::bitcoin::Psbt as BdkPsbt;
 use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
+use bdk_wallet::bitcoin::BlockHash as BdkBlockHash;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::bitcoin::TxIn as BdkTxIn;
 use bdk_wallet::bitcoin::TxOut as BdkTxOut;
@@ -26,6 +27,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use bdk_core::bitcoin::hex::FromHex;
+use bdk_wallet::bitcoin::hashes::Hash;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Amount(pub(crate) BdkAmount);
@@ -66,6 +68,7 @@ pub struct Script(pub(crate) BdkScriptBuf);
 
 impl Script {
     pub fn new(raw_output_script: Vec<u8>) -> Self {
+
         let script: BdkScriptBuf = raw_output_script.into();
         Script(script)
     }
@@ -78,6 +81,25 @@ impl Script {
 impl From<BdkScriptBuf> for Script {
     fn from(script: BdkScriptBuf) -> Self {
         Script(script)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockHash(pub(crate) BdkBlockHash);
+
+impl BlockHash {
+    pub fn new(str: String) -> Self {
+        let hash = BdkBlockHash::from_str(&str).unwrap();
+        BlockHash(hash)
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_byte_array().to_vec()
+    }
+}
+impl From<BdkBlockHash> for BlockHash {
+
+    fn from(hash: BdkBlockHash) -> Self {
+        BlockHash(hash)
     }
 }
 
@@ -220,7 +242,6 @@ impl Psbt {
     }
 
     pub(crate) fn from_hex(psbt_hex: String) -> Result<Self, PsbtParseError> {
-
         let bs = Vec::<u8>::from_hex(&psbt_hex).map_err(|e| PsbtParseError::PsbtEncoding { error_message: e.to_string() })?;
         let psbt: BdkPsbt = BdkPsbt::deserialize(bs.as_slice()).map_err(|e| PsbtParseError::PsbtEncoding { error_message: e.to_string() })?;
 
@@ -416,7 +437,7 @@ mod tests {
             bitcoin_mainnet_bech32_address_str.to_string(),
             Network::Bitcoin,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             bitcoin_mainnet_bech32_address.is_valid_for_network(Network::Bitcoin),
             "Address should be valid for Bitcoin"
@@ -447,7 +468,7 @@ mod tests {
             bitcoin_testnet_bech32_address_str.to_string(),
             Network::Testnet,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_testnet_bech32_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -478,7 +499,7 @@ mod tests {
             bitcoin_signet_bech32_address_str.to_string(),
             Network::Signet,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_signet_bech32_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -508,7 +529,7 @@ mod tests {
             bitcoin_regtest_bech32_address_str.to_string(),
             Network::Regtest,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_regtest_bech32_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -544,7 +565,7 @@ mod tests {
             bitcoin_mainnet_p2pkh_address_str.to_string(),
             Network::Bitcoin,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             bitcoin_mainnet_p2pkh_address.is_valid_for_network(Network::Bitcoin),
             "Address should be valid for Bitcoin"
@@ -569,7 +590,7 @@ mod tests {
             bitcoin_testnet_p2pkh_address_str.to_string(),
             Network::Testnet,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_testnet_p2pkh_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -594,7 +615,7 @@ mod tests {
             bitcoin_regtest_p2pkh_address_str.to_string(),
             Network::Regtest,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_regtest_p2pkh_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -626,7 +647,7 @@ mod tests {
             bitcoin_mainnet_p2sh_address_str.to_string(),
             Network::Bitcoin,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             bitcoin_mainnet_p2sh_address.is_valid_for_network(Network::Bitcoin),
             "Address should be valid for Bitcoin"
@@ -651,7 +672,7 @@ mod tests {
             bitcoin_testnet_p2sh_address_str.to_string(),
             Network::Testnet,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_testnet_p2sh_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"
@@ -676,7 +697,7 @@ mod tests {
             bitcoin_regtest_p2sh_address_str.to_string(),
             Network::Regtest,
         )
-        .unwrap();
+            .unwrap();
         assert!(
             !bitcoin_regtest_p2sh_address.is_valid_for_network(Network::Bitcoin),
             "Address should not be valid for Bitcoin"

@@ -599,6 +599,51 @@ interface EsploraClient {
 
   [Throws=EsploraError]
   void broadcast([ByRef] Transaction transaction);
+
+  [Throws=EsploraError]
+  Transaction get_tx(string txid);
+
+  [Throws=EsploraError]
+  Tx get_tx_info(string txid);
+};
+
+dictionary Vin{
+  string txid;
+  u32 vout;
+  PrevOut? prevout;
+  Script scriptsig;
+  sequence<sequence<u8>> witness;
+  u32 sequence;
+  boolean is_coinbase;
+};
+
+dictionary Vout{
+  u64 value;
+  Script scriptpubkey;
+};
+
+dictionary TxStatus {
+  boolean confirmed;
+  u32? block_height;
+  BlockHash? block_hash;
+  u64? block_time;
+};
+
+dictionary PrevOut{
+  u64 value;
+  Script scriptpubkey;
+};
+
+dictionary Tx{
+  string txid;
+  i32 version;
+  u32 locktime;
+  sequence<Vin> vin;
+  sequence<Vout> vout;
+  u64 size;
+  u64 weight;
+  TxStatus status;
+  u64 fee;
 };
 
 // ------------------------------------------------------------------------
@@ -639,6 +684,12 @@ dictionary SentAndReceivedValues {
 
 interface Script {
   constructor(sequence<u8> raw_output_script);
+
+  sequence<u8> to_bytes();
+};
+
+interface BlockHash {
+  constructor(string hash);
 
   sequence<u8> to_bytes();
 };
