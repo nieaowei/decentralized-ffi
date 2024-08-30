@@ -1,4 +1,4 @@
-use crate::bitcoin::{BlockHash, Script, Transaction};
+use crate::bitcoin::{BlockHash, Transaction};
 use crate::error::EsploraError;
 use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};

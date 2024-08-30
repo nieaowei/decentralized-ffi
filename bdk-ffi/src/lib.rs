@@ -10,7 +10,6 @@ mod wallet;
 
 use crate::bitcoin::Address;
 use crate::bitcoin::Psbt;
-use crate::bitcoin::Script;
 use crate::bitcoin::BlockHash;
 use crate::bitcoin::Transaction;
 use crate::bitcoin::TxIn;

@@ -17,6 +17,7 @@ use bdk_wallet::bitcoin::Psbt as BdkPsbt;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::bitcoin::TxIn as BdkTxIn;
 use bdk_wallet::bitcoin::TxOut as BdkTxOut;
+use bdk_wallet::bitcoin::BlockHash as BdkBlockHash;
 
 use std::fmt::Display;
 use std::ops::Deref;
@@ -75,6 +76,25 @@ impl From<Address> for BdkAddress {
 impl From<BdkAddress> for Address {
     fn from(address: BdkAddress) -> Self {
         Address(address)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockHash(pub(crate) BdkBlockHash);
+
+impl BlockHash {
+    pub fn new(str: String) -> Self {
+        let hash = BdkBlockHash::from_str(&str).unwrap();
+        BlockHash(hash)
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_byte_array().to_vec()
+    }
+}
+impl From<BdkBlockHash> for BlockHash {
+
+    fn from(hash: BdkBlockHash) -> Self {
+        BlockHash(hash)
     }
 }
 

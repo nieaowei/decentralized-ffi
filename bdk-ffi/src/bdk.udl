@@ -690,6 +690,12 @@ interface Address {
   boolean is_valid_for_network(Network network);
 };
 
+interface BlockHash {
+  constructor(string hash);
+
+  sequence<u8> to_bytes();
+};
+
 interface Transaction {
   [Throws=TransactionError]
   constructor(sequence<u8> transaction_bytes);
