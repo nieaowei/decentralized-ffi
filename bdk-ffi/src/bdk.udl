@@ -395,6 +395,10 @@ interface Wallet {
 
   AddressInfo reveal_next_address(KeychainKind keychain);
 
+  sequence<AddressInfo> reveal_addresses_to(KeychainKind keychain, u32 index);
+
+  AddressInfo peek_address(KeychainKind keychain, u32 index);
+
   Network network();
 
   Balance balance();
@@ -703,6 +707,9 @@ interface Psbt {
   [Throws=PsbtParseError]
   constructor(string psbt_base64);
 
+  [Name=from_hex, Throws=PsbtParseError]
+  constructor(string psbt_hex);
+
   string serialize();
 
   [Throws=ExtractTxError]
@@ -715,6 +722,8 @@ interface Psbt {
   Psbt combine(Psbt other);
 
   string json_serialize();
+
+  string serialize_hex();
 };
 
 dictionary OutPoint {

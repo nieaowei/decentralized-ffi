@@ -25,6 +25,7 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use bdk_core::bitcoin::hex::FromHex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Amount(pub(crate) BdkAmount);
@@ -218,6 +219,14 @@ impl Psbt {
         Ok(Psbt(Mutex::new(psbt)))
     }
 
+    pub(crate) fn from_hex(psbt_hex: String) -> Result<Self, PsbtParseError> {
+
+        let bs = Vec::<u8>::from_hex(&psbt_hex).map_err(|e| PsbtParseError::PsbtEncoding { error_message: e.to_string() })?;
+        let psbt: BdkPsbt = BdkPsbt::deserialize(bs.as_slice()).map_err(|e| PsbtParseError::PsbtEncoding { error_message: e.to_string() })?;
+
+        Ok(Psbt(Mutex::new(psbt)))
+    }
+
     pub(crate) fn serialize(&self) -> String {
         let psbt = self.0.lock().unwrap().clone();
         psbt.to_string()
@@ -248,6 +257,11 @@ impl Psbt {
     pub(crate) fn json_serialize(&self) -> String {
         let psbt = self.0.lock().unwrap();
         serde_json::to_string(psbt.deref()).unwrap()
+    }
+
+    pub fn serialize_hex(&self) -> String {
+        let psbt = self.0.lock().unwrap();
+        psbt.serialize_hex()
     }
 }
 
