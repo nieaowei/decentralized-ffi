@@ -28,6 +28,7 @@ bitcoin-ffi = { git = "https://github.com/bitcoindevkit/bitcoin-ffi", tag = "v0.
 
 uniffi = { version = "=0.28.0" }
 thiserror = "1.0.58"
+serde = { version = "1.0.203", features = ["derive"] }
 
 [build-dependencies]
 uniffi = { version = "=0.28.0", features = ["build"] }

@@ -391,6 +391,8 @@ interface Wallet {
   [Throws=CannotConnectError]
   void apply_update(Update update);
 
+  void apply_unconfirmed_txs(sequence<TransactionAndLastSeen> tx_and_last_seens);
+
   boolean is_mine(Script script);
 
   [Throws=SignerError]
@@ -403,7 +405,13 @@ interface Wallet {
   [Throws=TxidParseError]
   CanonicalTx? get_tx(string txid);
 
-  [Throws=CalculateFeeError]
+  TxOut? get_txout(OutPoint outpoint);
+
+  boolean insert_tx([ByRef] Transaction tx);
+
+  void insert_txout(OutPoint outpoint,TxOut txout);
+
+[Throws=CalculateFeeError]
   Amount calculate_fee([ByRef] Transaction tx);
 
   [Throws=CalculateFeeError]
@@ -647,6 +655,9 @@ interface ElectrumClient {
 
   [Throws=ElectrumError]
   string broadcast([ByRef] Transaction transaction);
+
+  [Throws=ElectrumError]
+  Transaction get_tx(string txid);
 };
 
 // ------------------------------------------------------------------------
@@ -661,6 +672,11 @@ dictionary ScriptAmount {
 dictionary SentAndReceivedValues {
     Amount sent;
     Amount received;
+};
+
+dictionary TransactionAndLastSeen{
+    Transaction tx;
+    u64 last_seen;
 };
 
 // ------------------------------------------------------------------------

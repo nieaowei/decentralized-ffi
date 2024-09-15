@@ -68,6 +68,7 @@ use crate::wallet::BumpFeeTxBuilder;
 use crate::wallet::SentAndReceivedValues;
 use crate::wallet::TxBuilder;
 use crate::wallet::Wallet;
+use crate::wallet::TransactionAndLastSeen;
 
 use bitcoin_ffi::Amount;
 use bitcoin_ffi::FeeRate;

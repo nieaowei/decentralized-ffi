@@ -3,7 +3,9 @@ use crate::error::EsploraError;
 use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};
 
-use bdk_esplora::esplora_client::{ BlockingClient, Builder};
+use bitcoin_ffi::Script;
+
+use bdk_esplora::esplora_client::{BlockingClient, Builder};
 use bdk_esplora::EsploraExt;
 use bdk_esplora::esplora_client::Tx as EsploraTx;
 use bdk_esplora::esplora_client::Vin as EsploraVin;
@@ -185,7 +187,7 @@ impl From<EsploraTxStatus> for TxStatus {
         Self {
             confirmed: value.confirmed,
             block_height: value.block_height,
-            block_hash: value.block_hash.map(|e|Arc::new(e.into())),
+            block_hash: value.block_hash.map(|e| Arc::new(e.into())),
             block_time: value.block_time,
         }
     }

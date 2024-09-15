@@ -183,6 +183,7 @@ dependencies = [
  "bdk_wallet",
  "bitcoin-ffi",
  "bitcoin-internals 0.2.0",
+ "serde",
  "thiserror",
  "uniffi",
 ]

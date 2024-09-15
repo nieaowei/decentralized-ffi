@@ -1,4 +1,4 @@
-use crate::bitcoin::{Psbt, Transaction};
+use crate::bitcoin::{Psbt, Transaction, TxOut};
 use crate::descriptor::Descriptor;
 use crate::error::{
     CalculateFeeError, CannotConnectError, CreateTxError, CreateWithPersistError,
@@ -20,8 +20,9 @@ use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
 use bdk_wallet::bitcoin::{Sequence, Txid};
 use bdk_wallet::rusqlite::Connection as BdkConnection;
 use bdk_wallet::tx_builder::ChangeSpendPolicy;
-use bdk_wallet::PersistedWallet;
+use bdk_wallet::{PersistedWallet};
 use bdk_wallet::Wallet as BdkWallet;
+use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::{KeychainKind, SignOptions};
 
 use std::borrow::BorrowMut;
@@ -68,6 +69,7 @@ impl Wallet {
         let wallet: PersistedWallet<BdkConnection> = BdkWallet::load()
             .descriptor(KeychainKind::External, Some(descriptor))
             .descriptor(KeychainKind::Internal, Some(change_descriptor))
+            .extract_keys()
             .load_wallet(db)?
             .ok_or(LoadWithPersistError::CouldNotLoad)?;
 
@@ -148,6 +150,29 @@ impl Wallet {
         Ok(self.get_wallet().get_tx(txid).map(|tx| tx.into()))
     }
 
+    pub fn get_txout(&self, outpoint: OutPoint) -> Option<TxOut> {
+        self.get_wallet()
+            .tx_graph()
+            .get_txout(outpoint)
+            .map(|txout| txout.into())
+    }
+
+    pub fn insert_tx(&self, tx: &Transaction) -> bool {
+        self.get_wallet()
+            .insert_tx(tx.into())
+    }
+
+    pub fn apply_unconfirmed_txs(&self, tx_and_last_seens: Vec<TransactionAndLastSeen>) {
+        let txs = tx_and_last_seens.into_iter().map(|e| ((&*e.tx).into(), e.last_seen)).collect::<Vec<(BdkTransaction, u64)>>();
+        self.get_wallet()
+            .apply_unconfirmed_txs(txs.iter().map(|e| (&e.0, e.1)));
+    }
+
+    pub fn insert_txout(&self, outpoint: OutPoint, txout: TxOut) {
+        self.get_wallet()
+            .insert_txout(outpoint, txout.into())
+    }
+
     pub fn calculate_fee(&self, tx: &Transaction) -> Result<Arc<Amount>, CalculateFeeError> {
         self.get_wallet()
             .calculate_fee(&tx.into())
@@ -196,6 +221,11 @@ impl Wallet {
 pub struct SentAndReceivedValues {
     pub sent: Arc<Amount>,
     pub received: Arc<Amount>,
+}
+
+pub struct TransactionAndLastSeen {
+    pub tx: Arc<Transaction>,
+    pub last_seen: u64,
 }
 
 #[derive(Clone)]

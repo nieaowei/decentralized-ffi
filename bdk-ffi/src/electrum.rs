@@ -1,5 +1,5 @@
 use crate::bitcoin::Transaction;
-use crate::error::ElectrumError;
+use crate::error::{ElectrumError};
 use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};
 
@@ -13,7 +13,10 @@ use bdk_wallet::KeychainKind;
 use bdk_wallet::Update as BdkUpdate;
 
 use std::collections::BTreeMap;
+use std::ops::Deref;
+use std::str::FromStr;
 use std::sync::Arc;
+use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::Txid;
 
 // NOTE: We are keeping our naming convention where the alias of the inner type is the Rust type
 //       prefixed with `Bdk`. In this case the inner type is `BdkElectrumClient`, so the alias is
@@ -92,5 +95,11 @@ impl ElectrumClient {
             .transaction_broadcast(&bdk_transaction)
             .map_err(ElectrumError::from)
             .map(|txid| txid.to_string())
+    }
+
+    pub fn get_tx(&self, txid: String) -> Result<Arc<Transaction>, ElectrumError> {
+        let txid = Txid::from_str(&txid).map_err(|e| ElectrumError::Hex { error_message: e.to_string() })?;
+        let tx = self.0.fetch_tx(txid).map_err(ElectrumError::from)?.deref().clone();
+        Ok(Arc::new(tx.into()))
     }
 }
