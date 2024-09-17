@@ -85,8 +85,7 @@ fn bitcoin_testnet4_genesis_tx() -> Transaction {
     let len = write_scriptint(&mut buf, 4);
     in_script = in_script.push_slice(&<&PushBytes>::from(&buf)[..len]);
 
-    let pb = <&PushBytes>::try_from(b"03/May/2024 000000000000000000001ebd58c244970b3aa9d783bb001011fbe8ea8e98e00e").unwrap();
-
+    let pb = unsafe{&*(b"03/May/2024 000000000000000000001ebd58c244970b3aa9d783bb001011fbe8ea8e98e00e" as *const [u8] as *const PushBytes)};
     in_script = in_script.push_slice(&pb);
 
 
