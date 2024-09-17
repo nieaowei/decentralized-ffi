@@ -371,10 +371,13 @@ enum ChangeSpendPolicy {
 
 interface Wallet {
   [Throws=CreateWithPersistError]
-  constructor(Descriptor descriptor, Descriptor change_descriptor, Network network, Connection connection);
+  constructor(Descriptor descriptor, Descriptor change_descriptor, CustomNetwork network, Connection connection);
 
   [Name=load, Throws=LoadWithPersistError]
-  constructor(Descriptor descriptor, Descriptor change_descriptor, Connection connection);
+  constructor(Descriptor descriptor, Descriptor? change_descriptor, Connection connection);
+
+  [Name=create_single,Throws=CreateWithPersistError]
+  constructor(Descriptor descriptor, CustomNetwork network, Connection connection);
 
   u32? derivation_index(KeychainKind keychain);
 
@@ -798,3 +801,11 @@ typedef extern FeeRateError;
 
 [ExternalInterface="bitcoin_ffi"]
 typedef extern ParseAmountError;
+
+enum CustomNetwork{
+  "Bitcoin",
+  "Signet",
+  "Testnet",
+  "Testnet4",
+  "Regtest",
+};

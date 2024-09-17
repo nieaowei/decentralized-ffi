@@ -14,7 +14,6 @@ use bitcoin_ffi::OutPoint;
 use bitcoin_ffi::Script;
 
 use bdk_wallet::bitcoin::amount::Amount as BdkAmount;
-use bdk_wallet::bitcoin::Network;
 use bdk_wallet::bitcoin::Psbt as BdkPsbt;
 use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
 use bdk_wallet::bitcoin::{Sequence, Txid};
@@ -24,11 +23,13 @@ use bdk_wallet::{PersistedWallet};
 use bdk_wallet::Wallet as BdkWallet;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::{KeychainKind, SignOptions};
+use bdk_wallet::bitcoin::network::Network;
 
 use std::borrow::BorrowMut;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, MutexGuard};
+use crate::testnet4::{testnet4_genesis_block, CustomNetwork};
 
 pub struct Wallet {
     inner_mutex: Mutex<PersistedWallet<BdkConnection>>,
@@ -38,7 +39,7 @@ impl Wallet {
     pub fn new(
         descriptor: Arc<Descriptor>,
         change_descriptor: Arc<Descriptor>,
-        network: Network,
+        network: CustomNetwork,
         connection: Arc<Connection>,
     ) -> Result<Self, CreateWithPersistError> {
         let descriptor = descriptor.to_string_with_secret();
@@ -46,10 +47,35 @@ impl Wallet {
         let mut binding = connection.get_store();
         let db: &mut BdkConnection = binding.borrow_mut();
 
-        let wallet: PersistedWallet<BdkConnection> =
-            BdkWallet::create(descriptor, change_descriptor)
-                .network(network)
-                .create_wallet(db)?;
+        let mut create_params =
+            BdkWallet::create(descriptor, change_descriptor).network(network.to_bitcoin_network());
+
+        if network == CustomNetwork::Testnet4 {
+            create_params = create_params.genesis_hash(testnet4_genesis_block().block_hash())
+        }
+        let wallet: PersistedWallet<BdkConnection> = create_params.create_wallet(db)?;
+
+        Ok(Wallet {
+            inner_mutex: Mutex::new(wallet),
+        })
+    }
+
+    pub fn create_single(
+        descriptor: Arc<Descriptor>,
+        network: CustomNetwork,
+        connection: Arc<Connection>,
+    ) -> Result<Self, CreateWithPersistError> {
+        let descriptor = descriptor.to_string_with_secret();
+        let mut binding = connection.get_store();
+        let db: &mut BdkConnection = binding.borrow_mut();
+
+        let mut create_params =
+            BdkWallet::create_single(descriptor).network(network.to_bitcoin_network());
+
+        if network == CustomNetwork::Testnet4 {
+            create_params = create_params.genesis_hash(testnet4_genesis_block().block_hash())
+        }
+        let wallet: PersistedWallet<BdkConnection> = create_params.create_wallet(db)?;
 
         Ok(Wallet {
             inner_mutex: Mutex::new(wallet),
@@ -58,17 +84,17 @@ impl Wallet {
 
     pub fn load(
         descriptor: Arc<Descriptor>,
-        change_descriptor: Arc<Descriptor>,
+        change_descriptor: Option<Arc<Descriptor>>,
         connection: Arc<Connection>,
     ) -> Result<Wallet, LoadWithPersistError> {
         let descriptor = descriptor.to_string_with_secret();
-        let change_descriptor = change_descriptor.to_string_with_secret();
+        let change_descriptor = change_descriptor.map_or(None,|e|Some(e.to_string_with_secret()));
         let mut binding = connection.get_store();
         let db: &mut BdkConnection = binding.borrow_mut();
 
         let wallet: PersistedWallet<BdkConnection> = BdkWallet::load()
             .descriptor(KeychainKind::External, Some(descriptor))
-            .descriptor(KeychainKind::Internal, Some(change_descriptor))
+            .descriptor(KeychainKind::Internal, change_descriptor)
             .extract_keys()
             .load_wallet(db)?
             .ok_or(LoadWithPersistError::CouldNotLoad)?;

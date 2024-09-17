@@ -7,6 +7,7 @@ mod keys;
 mod store;
 mod types;
 mod wallet;
+mod testnet4;
 
 use crate::bitcoin::Address;
 use crate::bitcoin::Psbt;
@@ -14,6 +15,7 @@ use crate::bitcoin::BlockHash;
 use crate::bitcoin::Transaction;
 use crate::bitcoin::TxIn;
 use crate::bitcoin::TxOut;
+use crate::testnet4::CustomNetwork;
 use crate::descriptor::Descriptor;
 use crate::electrum::ElectrumClient;
 use crate::error::AddressParseError;
