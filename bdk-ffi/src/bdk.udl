@@ -466,6 +466,8 @@ interface TxBuilder {
 
   TxBuilder fee_absolute(Amount fee);
 
+  TxBuilder ordering(TxOrdering tx_ordering);
+
   TxBuilder drain_wallet();
 
   TxBuilder drain_to([ByRef] Script script);
