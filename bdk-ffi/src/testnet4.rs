@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use bdk_wallet::bitcoin::{absolute, block, script, transaction, Amount, Block, BlockHash, CompactTarget, OutPoint, Sequence, Transaction, TxIn, TxMerkleNode, TxOut, Txid, Witness};
 use bdk_wallet::bitcoin::hashes::{sha256d, Hash};
 use bdk_wallet::bitcoin::opcodes::all::OP_CHECKSIG;

@@ -8,6 +8,7 @@ mod store;
 mod types;
 mod wallet;
 mod testnet4;
+mod rune;
 
 use crate::bitcoin::Address;
 use crate::bitcoin::Psbt;
@@ -71,6 +72,7 @@ use crate::wallet::SentAndReceivedValues;
 use crate::wallet::TxBuilder;
 use crate::wallet::Wallet;
 use crate::wallet::TransactionAndLastSeen;
+use crate::wallet::TxOrdering;
 
 use bitcoin_ffi::Amount;
 use bitcoin_ffi::FeeRate;

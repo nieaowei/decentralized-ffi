@@ -19,7 +19,7 @@ use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
 use bdk_wallet::bitcoin::{Sequence, Txid};
 use bdk_wallet::rusqlite::Connection as BdkConnection;
 use bdk_wallet::tx_builder::ChangeSpendPolicy;
-use bdk_wallet::{PersistedWallet};
+use bdk_wallet::{PersistedWallet, TxOrdering as BdkTxOrdering};
 use bdk_wallet::Wallet as BdkWallet;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::{KeychainKind, SignOptions};
@@ -267,6 +267,7 @@ pub struct TxBuilder {
     pub(crate) drain_wallet: bool,
     pub(crate) drain_to: Option<BdkScriptBuf>,
     pub(crate) rbf: Option<RbfValue>,
+    pub(crate) tx_ordering: Option<TxOrdering>,
     // pub(crate) data: Vec<u8>,
 }
 
@@ -284,6 +285,7 @@ impl TxBuilder {
             drain_wallet: false,
             drain_to: None,
             rbf: None,
+            tx_ordering: None,
             // data: Vec::new(),
         }
     }
@@ -415,6 +417,13 @@ impl TxBuilder {
         })
     }
 
+    pub(crate) fn ordering(&self, tx_ordering: TxOrdering) -> Arc<Self> {
+        Arc::new(TxBuilder {
+            tx_ordering: Some(tx_ordering),
+            ..self.clone()
+        })
+    }
+
     pub(crate) fn finish(&self, wallet: &Arc<Wallet>) -> Result<Arc<Psbt>, CreateTxError> {
         // TODO: I had to change the wallet here to be mutable. Why is that now required with the 1.0 API?
         let mut wallet = wallet.get_wallet();
@@ -457,6 +466,17 @@ impl TxBuilder {
                 }
                 RbfValue::Value(nsequence) => {
                     tx_builder.enable_rbf_with_sequence(Sequence(nsequence));
+                }
+            }
+        }
+
+        if let Some(ordering) = &self.tx_ordering{
+            match ordering {
+                TxOrdering::Shuffle => {
+                    tx_builder.ordering(BdkTxOrdering::Shuffle);
+                }
+                TxOrdering::Untouched => {
+                    tx_builder.ordering(BdkTxOrdering::Untouched);
                 }
             }
         }
@@ -524,3 +544,10 @@ pub enum RbfValue {
     Default,
     Value(u32),
 }
+
+#[derive(Clone, Debug)]
+pub enum TxOrdering{
+    Shuffle,
+    Untouched
+}
+

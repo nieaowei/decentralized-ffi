@@ -434,6 +434,11 @@ interface Wallet {
 
 interface Update {};
 
+enum TxOrdering{
+    "Shuffle",
+    "Untouched",
+};
+
 interface TxBuilder {
   constructor();
 
