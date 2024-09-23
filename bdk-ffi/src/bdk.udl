@@ -417,6 +417,8 @@ interface Wallet {
 
   TxOut? get_txout(OutPoint outpoint);
 
+  LocalOutput? get_utxo(OutPoint outpoint);
+
   boolean insert_tx([ByRef] Transaction tx);
 
   void insert_txout(OutPoint outpoint,TxOut txout);

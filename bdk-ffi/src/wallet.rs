@@ -176,6 +176,12 @@ impl Wallet {
         Ok(self.get_wallet().get_tx(txid).map(|tx| tx.into()))
     }
 
+    pub fn get_utxo(&self, outpoint: OutPoint) -> Option<LocalOutput> {
+        self.get_wallet()
+            .get_utxo(outpoint)
+            .map(|lo| lo.into())
+    }
+
     pub fn get_txout(&self, outpoint: OutPoint) -> Option<TxOut> {
         self.get_wallet()
             .tx_graph()
