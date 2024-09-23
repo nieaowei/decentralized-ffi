@@ -12,9 +12,7 @@ use bdk_wallet::chain::spk_client::FullScanRequestBuilder as BdkFullScanRequestB
 use bdk_wallet::chain::spk_client::SyncRequest as BdkSyncRequest;
 use bdk_wallet::chain::spk_client::SyncRequestBuilder as BdkSyncRequestBuilder;
 use bdk_wallet::chain::tx_graph::CanonicalTx as BdkCanonicalTx;
-use bdk_wallet::chain::{
-    ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime,
-};
+use bdk_wallet::chain::{ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime, ConfirmationTime as BdkConfirmationTime, ConfirmationTime};
 use bdk_wallet::AddressInfo as BdkAddressInfo;
 use bdk_wallet::Balance as BdkBalance;
 use bdk_wallet::KeychainKind;
@@ -123,6 +121,7 @@ pub struct LocalOutput {
     pub txout: TxOut,
     pub keychain: KeychainKind,
     pub is_spent: bool,
+    pub confirmation_time: ConfirmationTime,
 }
 
 impl From<BdkLocalOutput> for LocalOutput {
@@ -138,9 +137,29 @@ impl From<BdkLocalOutput> for LocalOutput {
             },
             keychain: local_utxo.keychain,
             is_spent: local_utxo.is_spent,
+            confirmation_time: local_utxo.confirmation_time.into(),
         }
     }
 }
+
+// pub enum  ConfirmationTime{
+//     Confirmed {
+//         height: u32,
+//         time: u64,
+//     },
+//     Unconfirmed {
+//         /// The last-seen timestamp in unix seconds.
+//         last_seen: u64,
+//     },
+// }
+//
+// impl From<BdkConfirmationTime> for ConfirmationTime {
+//     fn from(value: BdkConfirmationTime) -> Self {
+//         Self{
+//
+//         }
+//     }
+// }
 
 // Callback for the FullScanRequest
 pub trait FullScanScriptInspector: Sync + Send {

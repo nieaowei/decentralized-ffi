@@ -79,6 +79,7 @@ use bitcoin_ffi::FeeRate;
 use bitcoin_ffi::Network;
 use bitcoin_ffi::OutPoint;
 use bitcoin_ffi::Script;
+use bdk_wallet::chain::ConfirmationTime;
 
 use bdk_wallet::keys::bip39::WordCount;
 use bdk_wallet::tx_builder::ChangeSpendPolicy;

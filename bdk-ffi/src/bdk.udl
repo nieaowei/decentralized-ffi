@@ -299,6 +299,7 @@ dictionary LocalOutput {
   TxOut txout;
   KeychainKind keychain;
   boolean is_spent;
+  ConfirmationTime confirmation_time;
 };
 
 dictionary TxOut {
@@ -315,6 +316,12 @@ interface ChainPosition {
 dictionary ConfirmationBlockTime {
   BlockId block_id;
   u64 confirmation_time;
+};
+
+  [Enum]
+interface ConfirmationTime {
+  Confirmed(u32 height, u64 time);
+  Unconfirmed(u64 last_seen);
 };
 
 dictionary BlockId {
