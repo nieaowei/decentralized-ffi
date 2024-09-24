@@ -617,6 +617,9 @@ interface EsploraClient {
 
   [Throws=EsploraError]
   Tx get_tx_info(string txid);
+
+  [Throws=EsploraError]
+  OutputStatus get_output_status(string txid,u64 index);
 };
 
 dictionary Vin{
@@ -639,6 +642,13 @@ dictionary TxStatus {
   u32? block_height;
   BlockHash? block_hash;
   u64? block_time;
+};
+
+dictionary OutputStatus {
+  boolean spent;
+  string? txid;
+  u64? vin;
+  TxStatus? status;
 };
 
 dictionary PrevOut{

@@ -5,7 +5,7 @@ use crate::types::{FullScanRequest, SyncRequest};
 
 use bitcoin_ffi::Script;
 
-use bdk_esplora::esplora_client::{BlockingClient, Builder};
+use bdk_esplora::esplora_client::{BlockingClient, Builder, OutputStatus as EsploraOutputStatus};
 use bdk_esplora::EsploraExt;
 use bdk_esplora::esplora_client::Tx as EsploraTx;
 use bdk_esplora::esplora_client::Vin as EsploraVin;
@@ -100,6 +100,31 @@ impl EsploraClient {
     pub fn get_tx_info(&self, txid: String) -> Result<Tx, EsploraError> {
         let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing { error_message: e.to_string() })?;
         Ok(self.0.get_tx_info(&txid).map_err(EsploraError::from)?.ok_or(EsploraError::TransactionNotFound)?.into())
+    }
+
+    pub fn get_output_status(&self, txid: String, index: u64) -> Result<OutputStatus, EsploraError> {
+        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing { error_message: e.to_string() })?;
+        Ok(self.0.get_output_status(&txid, index).map_err(EsploraError::from)?.ok_or(EsploraError::TransactionNotFound)?.into())
+    }
+}
+
+
+#[derive(Debug,Clone)]
+pub struct OutputStatus{
+    pub spent: bool,
+    pub txid: Option<String>,
+    pub vin: Option<u64>,
+    pub status: Option<TxStatus>,
+}
+
+impl From<EsploraOutputStatus> for OutputStatus {
+    fn from(value: EsploraOutputStatus) -> Self {
+        Self{
+            spent: value.spent,
+            txid: value.txid.map(|e|e.to_string()),
+            vin: value.vin,
+            status: value.status.map(Into::into),
+        }
     }
 }
 

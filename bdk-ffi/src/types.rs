@@ -12,7 +12,7 @@ use bdk_wallet::chain::spk_client::FullScanRequestBuilder as BdkFullScanRequestB
 use bdk_wallet::chain::spk_client::SyncRequest as BdkSyncRequest;
 use bdk_wallet::chain::spk_client::SyncRequestBuilder as BdkSyncRequestBuilder;
 use bdk_wallet::chain::tx_graph::CanonicalTx as BdkCanonicalTx;
-use bdk_wallet::chain::{ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime, ConfirmationTime as BdkConfirmationTime, ConfirmationTime};
+use bdk_wallet::chain::{ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime, ConfirmationTime};
 use bdk_wallet::AddressInfo as BdkAddressInfo;
 use bdk_wallet::Balance as BdkBalance;
 use bdk_wallet::KeychainKind;

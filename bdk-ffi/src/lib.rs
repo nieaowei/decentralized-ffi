@@ -47,6 +47,7 @@ use crate::esplora::PrevOut;
 use crate::esplora::TxStatus;
 use crate::esplora::Vin;
 use crate::esplora::Vout;
+use crate::esplora::OutputStatus;
 use crate::keys::DerivationPath;
 use crate::keys::DescriptorPublicKey;
 use crate::keys::DescriptorSecretKey;
@@ -79,6 +80,7 @@ use bitcoin_ffi::FeeRate;
 use bitcoin_ffi::Network;
 use bitcoin_ffi::OutPoint;
 use bitcoin_ffi::Script;
+
 use bdk_wallet::chain::ConfirmationTime;
 
 use bdk_wallet::keys::bip39::WordCount;
