@@ -2,13 +2,15 @@ mod bitcoin;
 mod descriptor;
 mod electrum;
 mod error;
-mod esplora;
+pub mod esplora;
 mod keys;
 mod store;
 mod types;
 mod wallet;
 mod testnet4;
 mod rune;
+
+mod utils;
 
 use crate::bitcoin::Address;
 use crate::bitcoin::Psbt;
@@ -87,5 +89,7 @@ use bdk_wallet::keys::bip39::WordCount;
 use bdk_wallet::tx_builder::ChangeSpendPolicy;
 use bdk_wallet::ChangeSet;
 use bdk_wallet::KeychainKind;
+
+use crate::utils::script_to_asm;
 
 uniffi::include_scaffolding!("bdk");

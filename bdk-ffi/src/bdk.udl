@@ -1,4 +1,6 @@
-namespace bdk {};
+namespace bdk {
+  string script_to_asm_string(Script script);
+};
 
 // ------------------------------------------------------------------------
 // bdk crate - error module
@@ -835,3 +837,4 @@ enum CustomNetwork{
   "Testnet4",
   "Regtest",
 };
+

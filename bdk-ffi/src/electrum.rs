@@ -1,6 +1,6 @@
 use crate::bitcoin::Transaction;
 use crate::error::{ElectrumError};
-use crate::types::Update;
+use crate::types::{Update};
 use crate::types::{FullScanRequest, SyncRequest};
 
 use bdk_core::spk_client::FullScanRequest as BdkFullScanRequest;
@@ -17,6 +17,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::Txid;
+use bdk_electrum::electrum_client::ElectrumApi;
 
 // NOTE: We are keeping our naming convention where the alias of the inner type is the Rust type
 //       prefixed with `Bdk`. In this case the inner type is `BdkElectrumClient`, so the alias is
@@ -102,4 +103,59 @@ impl ElectrumClient {
         let tx = self.0.fetch_tx(txid).map_err(ElectrumError::from)?.deref().clone();
         Ok(Arc::new(tx.into()))
     }
+    //
+    // pub fn get_canonical_tx(&self, txid: String) -> Result<Arc<CanonicalTx>, ElectrumError> {
+    //     let tx = self.get_tx(txid.clone())?;
+    //
+    //     let spk = tx.output().first().expect("must be one output").clone();
+    //     let his = self.0
+    //         .inner.script_get_history(spk.script_pubkey.0.as_script())?;
+    //
+    //     let height = his.iter().find(|e| e.tx_hash.to_string() == txid).unwrap().height;
+    //     let block = self.0.inner.block_header(height as usize)?;
+    //
+    //     let tx = if height != 0 {
+    //         CanonicalTx {
+    //             transaction: tx,
+    //             chain_position: ChainPosition::Confirmed {
+    //                 confirmation_block_time: ConfirmationBlockTime {
+    //                     block_id: BlockId { height: height as u32, hash: block.block_hash().to_string() },
+    //                     confirmation_time: block.time as u64,
+    //                 }
+    //             },
+    //         }
+    //     } else {
+    //         CanonicalTx {
+    //             transaction: tx,
+    //             chain_position: ChainPosition::Unconfirmed { timestamp: block.time as u64 },
+    //         }
+    //     };
+    //     Ok(Arc::new(tx.into()))
+    // }
+    //
+    // pub fn get_output_status(&self, txid: String, index: u64) -> Result<OutputStatus, ElectrumError> {
+    //     // let txid = Txid::from_str(&txid).map_err(|e| ElectrumError::Parsing { error_message: e.to_string() })?;
+    //     let tx = self.get_tx(txid)?;
+    //     let spk = tx.output()[index as usize].clone();
+    //     let utxo = self.0.inner
+    //         .script_list_unspent(spk.script_pubkey.0.as_script())?
+    //         .iter().find(|e| e.tx_hash.to_string() == txid && e.tx_pos == index as usize);
+    //
+    //     let Some(utxo) = utxo else {
+    //         //
+    //         return Ok(OutputStatus {
+    //             spent: true,
+    //             txid: None,
+    //             vin: None,
+    //             status: None,
+    //         })
+    //     };
+    //
+    //     Ok(OutputStatus {
+    //         spent: false,
+    //         txid: None,
+    //         vin: None,
+    //         status: None,
+    //     })
+    // }
 }

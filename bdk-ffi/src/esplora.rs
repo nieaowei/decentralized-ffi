@@ -109,8 +109,8 @@ impl EsploraClient {
 }
 
 
-#[derive(Debug,Clone)]
-pub struct OutputStatus{
+#[derive(Debug, Clone)]
+pub struct OutputStatus {
     pub spent: bool,
     pub txid: Option<String>,
     pub vin: Option<u64>,
@@ -119,9 +119,9 @@ pub struct OutputStatus{
 
 impl From<EsploraOutputStatus> for OutputStatus {
     fn from(value: EsploraOutputStatus) -> Self {
-        Self{
+        Self {
             spent: value.spent,
-            txid: value.txid.map(|e|e.to_string()),
+            txid: value.txid.map(|e| e.to_string()),
             vin: value.vin,
             status: value.status.map(Into::into),
         }
@@ -229,15 +229,89 @@ impl From<EsploraPrevOut> for PrevOut {
     }
 }
 
-// mod test {
-//     use std::str::FromStr;
-//     use super::*;
-//
-//     #[test]
-//     fn it_works() {
-//         let c = EsploraClient::new("https://mempool.space/api".to_string());
-//         let txid = Txid::from_str("96ae181640193fcb667553224560c1eaa9a8e524d94e9fd37fb65c97b9034178").unwrap();
-//         let resp = c.get_tx_info(txid).unwrap();
-//         println!("{:?}", resp);
-//     }
-// }
+mod test {
+    use std::collections::{BTreeSet, HashSet};
+    use std::ops::Deref;
+    use std::str::FromStr;
+    use bdk_wallet::serde_json;
+    use serde::Serialize;
+    use super::*;
+
+    //
+    // fn find_childs(c: &EsploraClient, txid: String) -> Vec<Arc<Transaction>> {
+    //     let txinf = c.get_tx(txid.clone()).unwrap();
+    //     let mut childs1 = vec![];
+    //     for txout in txinf.output().iter().enumerate() {
+    //         let outstatus = c.get_output_status(txid.clone(), txout.0 as u64).unwrap();
+    //         if !outstatus.spent {
+    //             continue;
+    //         }
+    //         let txinfo = c.get_tx(outstatus.txid.unwrap()).unwrap();
+    //         childs1.push(txinfo.clone());
+    //         childs1.append(&mut find_childs(c, txinfo.compute_txid()))
+    //     }
+    //     childs1
+    // }
+
+    // fn find_chain(c:&EsploraClient,txid: Txid){
+    //
+    // }
+
+    #[derive(Serialize)]
+    #[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Clone)]
+    struct CpfpTx {
+        txid: String,
+        fee: u64,
+        weight: u64,
+        parents: BTreeSet<CpfpTx>,
+        childs: BTreeSet<CpfpTx>,
+    }
+
+    impl CpfpTx {
+        fn find_chain(c: &EsploraClient, start_txid: String, visited: &mut BTreeSet<CpfpTx>) -> CpfpTx {
+            if let Some(v) = visited.iter().find(|e|e.txid == start_txid).cloned(){
+                println!("989\n");
+                return v
+            }
+
+            let start_tx = c.get_tx_info(start_txid.clone()).unwrap();
+            let mut chain_start = CpfpTx {
+                txid: start_txid.clone(),
+                fee: start_tx.fee,
+                weight: start_tx.weight,
+                parents: Default::default(),
+                childs: Default::default(),
+            };
+
+            for txin in start_tx.vin {
+                let tx_info = c.get_tx_info(txin.txid.clone()).unwrap();
+                if tx_info.status.confirmed {
+                    continue;
+                }
+
+                chain_start.parents.insert(Self::find_chain(c, tx_info.txid.clone(),visited));
+            }
+            for txout in start_tx.vout.iter().enumerate() {
+                let outstatus = c.get_output_status(start_txid.clone(), txout.0 as u64).unwrap();
+                if !outstatus.spent {
+                    continue;
+                }
+                let tx_info = c.get_tx_info(outstatus.txid.unwrap()).unwrap();
+                if tx_info.status.confirmed {
+                    continue;
+                }
+                chain_start.childs.insert(Self::find_chain(c, tx_info.txid.clone(),visited));
+            }
+            visited.insert(chain_start.clone());
+            chain_start
+        }
+    }
+    #[test]
+    fn it_works() {
+        let c = EsploraClient::new("https://mempool.space/testnet4/api".to_string());
+        // let txid = Txid::from_str("96ae181640193fcb667553224560c1eaa9a8e524d94e9fd37fb65c97b9034178").unwrap();
+        // let resp = c.get_tx_info("b32c6daa011090edbce186a25c3fd80fd3ee03974fa199206031ebed28cf5198".to_string()).unwrap();
+        let childs = CpfpTx::find_chain(&c, "a7912a1a7f4ccf1cd248b17d403e5acd8a342671c02ac88c11e6509afe2bb8c3".to_string(), &mut BTreeSet::new());
+        println!("{}", serde_json::to_string(&childs).unwrap());
+    }
+}
