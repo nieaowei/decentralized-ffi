@@ -90,6 +90,6 @@ use bdk_wallet::tx_builder::ChangeSpendPolicy;
 use bdk_wallet::ChangeSet;
 use bdk_wallet::KeychainKind;
 
-use crate::utils::script_to_asm;
+use crate::utils::script_to_asm_string;
 
 uniffi::include_scaffolding!("bdk");
