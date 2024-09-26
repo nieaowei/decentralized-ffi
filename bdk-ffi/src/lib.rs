@@ -95,7 +95,8 @@ use crate::utils::script_to_asm_string;
 use crate::rune::RuneParseError;
 use crate::rune::Rune;
 use crate::rune::Edict;
-use ordinals::RuneId;
+use crate::rune::RuneId;
+use crate::rune::extract_rune_from_script;
 
 
 uniffi::include_scaffolding!("bdk");

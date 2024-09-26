@@ -1,5 +1,8 @@
 namespace bdk {
   string script_to_asm_string(Script script);
+
+  [Throws=RuneParseError]
+  Rune extract_rune_from_script(Script script);
 };
 
 // ------------------------------------------------------------------------
@@ -320,7 +323,7 @@ dictionary ConfirmationBlockTime {
   u64 confirmation_time;
 };
 
-  [Enum]
+[Enum]
 interface ConfirmationTime {
   Confirmed(u32 height, u64 time);
   Unconfirmed(u64 last_seen);
@@ -860,4 +863,11 @@ dictionary Edict{
   RuneId id;
   u64 amount;
   u32 output;
+};
+
+[Enum]
+interface Rune{
+  Edicts(sequence<Edict> edicts);
+  Etching(RuneId rune_id);
+  Nothing();
 };

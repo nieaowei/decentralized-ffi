@@ -25,7 +25,6 @@ bdk_electrum = { version = "0.17.0", default-features = false, features = ["use-
 bdk_bitcoind_rpc = { version = "0.14.0" }
 bitcoin-internals = { version = "0.2.0", features = ["alloc"] }
 bitcoin-ffi = { git = "https://github.com/bitcoindevkit/bitcoin-ffi", tag = "v0.1.2" }
-ordinals = "0.0.10"
 
 uniffi = { version = "=0.28.0" }
 thiserror = "1.0.58"

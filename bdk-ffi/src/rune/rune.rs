@@ -1,12 +1,15 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::TryInto;
+use std::fmt::Display;
 use std::ops::Deref;
 use std::sync::Arc;
 use bdk_wallet::bitcoin::{
-    constants::MAX_SCRIPT_ELEMENT_SIZE, opcodes, script, script::Instruction, ScriptBuf,
+    constants::MAX_SCRIPT_ELEMENT_SIZE, opcodes,
 };
+use bdk_wallet::bitcoin::script::Instruction;
 use bitcoin_ffi::Script;
-use ordinals::{varint, Edict as OrdiEdict, RuneId};
+use crate::rune::rune_id::RuneId;
+use crate::rune::varint;
 
 #[derive(Copy, Clone, Debug)]
 pub(super) enum Tag {
@@ -50,10 +53,10 @@ pub enum RuneParseError {
     U128Tou32,
 }
 
-#[derive(uniffi::Enum)]
+
 pub enum Rune {
-    Edicts(Vec<Edict>),
-    Etching(RuneId),
+    Edicts { edicts: Vec<Edict> },
+    Etching { rune_id: RuneId },
     Nothing,
 }
 
@@ -63,21 +66,14 @@ impl Rune {
     }
 }
 
+
 pub struct Edict {
     pub id: RuneId,
     pub amount: u64,
     pub output: u32,
 }
 
-impl From<OrdiEdict> for Edict {
-    fn from(value: OrdiEdict) -> Self {
-        Self{
-            id: value.id,
-            amount: value.amount as u64,
-            output: value.output,
-        }
-    }
-}
+
 impl Tag {
     fn take<const N: usize, T>(
         self,
@@ -144,8 +140,8 @@ fn integers(payload: &[u8]) -> Result<Vec<u128>, RuneParseError> {
     Ok(integers)
 }
 
-pub fn extract_rune_from_script(script_buf: Arc<Script>) -> Result<Rune, RuneParseError> {
-    let mut instructions = script_buf.0.instructions();
+pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseError> {
+    let mut instructions = script.0.instructions();
     if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_RETURN))) {
         return Err(RuneParseError::NoOpReturn);
     }
@@ -210,115 +206,116 @@ pub fn extract_rune_from_script(script_buf: Arc<Script>) -> Result<Rune, RunePar
 
         fields.entry(tag).or_default().push_back(value);
     }
-    if !edicts.is_empty(){
-        return Ok(Rune::Edicts(edicts))
+    if !edicts.is_empty() {
+        return Ok(Rune::Edicts{edicts});
     }
 
     if let Some(mint) = Tag::Mint.take(&mut fields, |[block, tx]| {
         RuneId::new(block.try_into().ok()?, tx.try_into().ok()?)
-    }){
-        return Ok(Rune::Etching(mint))
+    }) {
+        return Ok(Rune::Etching{rune_id: mint});
     }
 
     Ok(Rune::Nothing)
 }
 
-pub(crate) fn extract_rune_mint(script_buf: Script) -> Result<Option<RuneId>, RuneParseError> {
-    let mut instructions = script_buf.0.instructions();
-    if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_RETURN))) {
-        return Err(RuneParseError::NoOpReturn);
-    }
-
-    if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_PUSHNUM_13))) {
-        return Err(RuneParseError::NoMagicNumber);
-    }
-    // construct the payload by concatenating remaining data pushes
-    let mut payload = Vec::new();
-
-    for result in instructions {
-        match result {
-            Ok(Instruction::PushBytes(push)) => {
-                payload.extend_from_slice(push.as_bytes());
-            }
-            Ok(Instruction::Op(_)) => {
-                continue;
-            }
-            Err(_) => {
-                continue;
-            }
-        }
-    }
-
-    let Ok(integers) = integers(&payload) else {
-        return Err(RuneParseError::NoRune)
-    };
-    let mut edicts = Vec::new();
-    let mut fields = HashMap::<u128, VecDeque<u128>>::new();
-
-    for i in (0..integers.len()).step_by(2) {
-        let tag = integers[i];
-
-        if Tag::Body == tag {
-            let mut id = RuneId::default();
-            for chunk in integers[i + 1..].chunks(4) {
-                if chunk.len() != 4 {
-                    // flaws |= Flaw::TrailingIntegers.flag();
-                    break;
-                }
-
-                let Some(next) = id.next(chunk[0], chunk[1]) else {
-                    // flaws |= Flaw::EdictRuneId.flag();
-                    break;
-                };
-
-                let edict = Edict {
-                    id: next,
-                    amount: chunk[2] as u64,
-                    output: chunk[3].try_into().map_err(|err| RuneParseError::U128Tou32)?,
-                };
-
-                id = next;
-                edicts.push(edict)
-            }
-            break;
-        }
-
-        let Some(&value) = integers.get(i + 1) else {
-            break;
-        };
-
-        fields.entry(tag).or_default().push_back(value);
-    }
-
-    let mint = Tag::Mint.take(&mut fields, |[block, tx]| {
-        RuneId::new(block.try_into().ok()?, tx.try_into().ok()?)
-    });
-
-    Ok(mint)
-}
-
-pub(crate) fn build_edict_script_buf(mut edicts: Vec<Edict>) -> ScriptBuf {
-    let mut payload = Vec::new();
-    varint::encode_to_vec(Tag::Body.into(), &mut payload);
-    edicts.sort_by_key(|edict| edict.id);
-    let mut previous = RuneId::default();
-    for edict in edicts {
-        let (block, tx) = previous.delta(edict.id).unwrap();
-        varint::encode_to_vec(block, &mut payload);
-        varint::encode_to_vec(tx, &mut payload);
-        varint::encode_to_vec(edict.amount as u128, &mut payload);
-        varint::encode_to_vec(edict.output.into(), &mut payload);
-        previous = edict.id;
-    }
-
-    let mut builder = script::Builder::new()
-        .push_opcode(opcodes::all::OP_RETURN)
-        .push_opcode(opcodes::all::OP_PUSHNUM_13);
-
-    for chunk in payload.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
-        let push: &script::PushBytes = chunk.try_into().unwrap();
-        builder = builder.push_slice(push);
-    }
-
-    builder.into_script()
-}
+//
+// pub(crate) fn extract_rune_mint(script_buf: Script) -> Result<Option<RuneId>, RuneParseError> {
+//     let mut instructions = script_buf.0.instructions();
+//     if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_RETURN))) {
+//         return Err(RuneParseError::NoOpReturn);
+//     }
+//
+//     if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_PUSHNUM_13))) {
+//         return Err(RuneParseError::NoMagicNumber);
+//     }
+//     // construct the payload by concatenating remaining data pushes
+//     let mut payload = Vec::new();
+//
+//     for result in instructions {
+//         match result {
+//             Ok(Instruction::PushBytes(push)) => {
+//                 payload.extend_from_slice(push.as_bytes());
+//             }
+//             Ok(Instruction::Op(_)) => {
+//                 continue;
+//             }
+//             Err(_) => {
+//                 continue;
+//             }
+//         }
+//     }
+//
+//     let Ok(integers) = integers(&payload) else {
+//         return Err(RuneParseError::NoRune)
+//     };
+//     let mut edicts = Vec::new();
+//     let mut fields = HashMap::<u128, VecDeque<u128>>::new();
+//
+//     for i in (0..integers.len()).step_by(2) {
+//         let tag = integers[i];
+//
+//         if Tag::Body == tag {
+//             let mut id = RuneId::default();
+//             for chunk in integers[i + 1..].chunks(4) {
+//                 if chunk.len() != 4 {
+//                     // flaws |= Flaw::TrailingIntegers.flag();
+//                     break;
+//                 }
+//
+//                 let Some(next) = id.next(chunk[0], chunk[1]) else {
+//                     // flaws |= Flaw::EdictRuneId.flag();
+//                     break;
+//                 };
+//
+//                 let edict = Edict {
+//                     id: next,
+//                     amount: chunk[2] as u64,
+//                     output: chunk[3].try_into().map_err(|err| RuneParseError::U128Tou32)?,
+//                 };
+//
+//                 id = next;
+//                 edicts.push(edict)
+//             }
+//             break;
+//         }
+//
+//         let Some(&value) = integers.get(i + 1) else {
+//             break;
+//         };
+//
+//         fields.entry(tag).or_default().push_back(value);
+//     }
+//
+//     let mint = Tag::Mint.take(&mut fields, |[block, tx]| {
+//         RuneId::new(block.try_into().ok()?, tx.try_into().ok()?)
+//     });
+//
+//     Ok(mint)
+// }
+//
+// pub(crate) fn build_edict_script_buf(mut edicts: Vec<Edict>) -> ScriptBuf {
+//     let mut payload = Vec::new();
+//     varint::encode_to_vec(Tag::Body.into(), &mut payload);
+//     edicts.sort_by_key(|edict| edict.id);
+//     let mut previous = RuneId::default();
+//     for edict in edicts {
+//         let (block, tx) = previous.delta(edict.id).unwrap();
+//         varint::encode_to_vec(block, &mut payload);
+//         varint::encode_to_vec(tx, &mut payload);
+//         varint::encode_to_vec(edict.amount as u128, &mut payload);
+//         varint::encode_to_vec(edict.output.into(), &mut payload);
+//         previous = edict.id;
+//     }
+//
+//     let mut builder = script::Builder::new()
+//         .push_opcode(opcodes::all::OP_RETURN)
+//         .push_opcode(opcodes::all::OP_PUSHNUM_13);
+//
+//     for chunk in payload.chunks(MAX_SCRIPT_ELEMENT_SIZE) {
+//         let push: &script::PushBytes = chunk.try_into().unwrap();
+//         builder = builder.push_slice(push);
+//     }
+//
+//     builder.into_script()
+// }
