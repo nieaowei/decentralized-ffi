@@ -838,3 +838,26 @@ enum CustomNetwork{
   "Regtest",
 };
 
+
+// ------------------------------------------------------------------------
+// Rune support
+// ------------------------------------------------------------------------
+[Error]
+interface RuneParseError {
+  NoOpReturn();
+  NoMagicNumber();
+  NoRune();
+  DecodePayload(string error_message);
+  U128Tou32();
+};
+
+dictionary RuneId{
+  u64 block;
+  u32 tx;
+};
+
+dictionary Edict{
+  RuneId id;
+  u64 amount;
+  u32 output;
+};

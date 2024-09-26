@@ -92,4 +92,10 @@ use bdk_wallet::KeychainKind;
 
 use crate::utils::script_to_asm_string;
 
+use crate::rune::RuneParseError;
+use crate::rune::Rune;
+use crate::rune::Edict;
+use ordinals::RuneId;
+
+
 uniffi::include_scaffolding!("bdk");
