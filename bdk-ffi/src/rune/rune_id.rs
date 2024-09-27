@@ -1,9 +1,16 @@
 use std::convert::TryInto;
+use std::fmt::{Display, Formatter};
 
 #[derive(Default, Ord, PartialOrd, PartialEq, Eq,Copy, Clone)]
 pub struct RuneId {
     pub block: u64,
     pub tx: u32,
+}
+
+impl Display for RuneId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}:{}", self.block, self.tx))
+    }
 }
 
 impl RuneId {
