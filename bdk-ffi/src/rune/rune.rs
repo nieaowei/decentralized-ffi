@@ -1,10 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::TryInto;
-use std::fmt::Display;
-use std::ops::Deref;
 use std::sync::Arc;
 use bdk_wallet::bitcoin::{
-    constants::MAX_SCRIPT_ELEMENT_SIZE, opcodes,
+    opcodes,
 };
 use bdk_wallet::bitcoin::script::Instruction;
 use bitcoin_ffi::Script;

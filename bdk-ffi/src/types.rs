@@ -246,3 +246,27 @@ impl FullScanRequestBuilder {
 }
 
 pub struct Update(pub(crate) BdkUpdate);
+
+pub struct SentAndReceivedValues {
+    pub sent: Arc<Amount>,
+    pub received: Arc<Amount>,
+}
+
+#[derive(Clone, Debug)]
+pub enum RbfValue {
+    Default,
+    Value(u32),
+}
+
+
+pub struct TransactionAndLastSeen {
+    pub tx: Arc<Transaction>,
+    pub last_seen: u64,
+}
+
+#[derive(Clone, Debug)]
+pub enum TxOrdering {
+    Shuffle,
+    Untouched,
+}
+

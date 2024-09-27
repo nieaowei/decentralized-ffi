@@ -17,7 +17,6 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::Txid;
-use bdk_electrum::electrum_client::ElectrumApi;
 
 // NOTE: We are keeping our naming convention where the alias of the inner type is the Rust type
 //       prefixed with `Bdk`. In this case the inner type is `BdkElectrumClient`, so the alias is

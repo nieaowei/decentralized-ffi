@@ -854,7 +854,6 @@ interface RuneParseError {
   U128Tou32();
 };
 
-[Traits=(Display)]
 dictionary RuneId{
   u64 block;
   u32 tx;

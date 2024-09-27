@@ -229,6 +229,7 @@ impl From<EsploraPrevOut> for PrevOut {
     }
 }
 
+#[cfg(test)]
 mod test {
     use std::collections::{BTreeSet, HashSet};
     use std::ops::Deref;

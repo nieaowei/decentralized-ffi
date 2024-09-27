@@ -174,6 +174,12 @@ impl From<&Transaction> for BdkTransaction {
     }
 }
 
+impl From<&Transaction> for Arc<BdkTransaction> {
+    fn from(tx: &Transaction) -> Self {
+        Arc::new(tx.0.clone())
+    }
+}
+
 pub struct Psbt(pub(crate) Mutex<BdkPsbt>);
 
 impl Psbt {

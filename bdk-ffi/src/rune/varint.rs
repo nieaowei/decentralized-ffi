@@ -1,6 +1,5 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use super::*;
 
 pub fn encode_to_vec(mut n: u128, v: &mut Vec<u8>) {
     while n >> 7 > 0 {
