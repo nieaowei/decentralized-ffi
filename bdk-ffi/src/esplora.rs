@@ -3,7 +3,7 @@ use crate::error::EsploraError;
 use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};
 
-use bitcoin_ffi::Script;
+use bitcoin_ffi::{Amount, Script};
 
 use bdk_esplora::esplora_client::{BlockingClient, Builder, OutputStatus as EsploraOutputStatus};
 use bdk_esplora::EsploraExt;
@@ -129,7 +129,6 @@ impl From<EsploraOutputStatus> for OutputStatus {
 }
 
 
-#[derive(Debug, Clone)]
 pub struct Tx {
     pub txid: String,
     pub version: i32,
@@ -139,7 +138,7 @@ pub struct Tx {
     pub size: u64,
     pub weight: u64,
     pub status: TxStatus,
-    pub fee: u64,
+    pub fee: Arc<Amount>,
 }
 
 impl From<EsploraTx> for Tx {
@@ -153,12 +152,11 @@ impl From<EsploraTx> for Tx {
             size: value.size as u64,
             weight: value.weight,
             status: value.status.into(),
-            fee: value.fee,
+            fee: Arc::new(Amount::from_sat(value.fee)),
         }
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Vin {
     pub txid: String,
     pub vout: u32,
@@ -184,16 +182,15 @@ impl From<EsploraVin> for Vin {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Vout {
-    pub value: u64,
+    pub value: Arc<Amount>,
     pub scriptpubkey: Arc<Script>,
 }
 
 impl From<EsploraVout> for Vout {
     fn from(value: EsploraVout) -> Self {
         Self {
-            value: value.value,
+            value: Arc::new(Amount::from_sat(value.value)),
             scriptpubkey: Arc::new(value.scriptpubkey.into()),
         }
     }
@@ -218,14 +215,13 @@ impl From<EsploraTxStatus> for TxStatus {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct PrevOut {
-    pub value: u64,
+    pub value: Arc<Amount>,
     pub scriptpubkey: Arc<Script>,
 }
 impl From<EsploraPrevOut> for PrevOut {
     fn from(value: EsploraPrevOut) -> Self {
-        Self { value: value.value, scriptpubkey: Arc::new(value.scriptpubkey.into()) }
+        Self { value: Arc::new(Amount::from_sat(value.value)), scriptpubkey: Arc::new(value.scriptpubkey.into()) }
     }
 }
 
@@ -270,9 +266,9 @@ mod test {
 
     impl CpfpTx {
         fn find_chain(c: &EsploraClient, start_txid: String, visited: &mut BTreeSet<CpfpTx>) -> CpfpTx {
-            if let Some(v) = visited.iter().find(|e|e.txid == start_txid).cloned(){
+            if let Some(v) = visited.iter().find(|e| e.txid == start_txid).cloned() {
                 println!("989\n");
-                return v
+                return v;
             }
 
             let start_tx = c.get_tx_info(start_txid.clone()).unwrap();
@@ -290,7 +286,7 @@ mod test {
                     continue;
                 }
 
-                chain_start.parents.insert(Self::find_chain(c, tx_info.txid.clone(),visited));
+                chain_start.parents.insert(Self::find_chain(c, tx_info.txid.clone(), visited));
             }
             for txout in start_tx.vout.iter().enumerate() {
                 let outstatus = c.get_output_status(start_txid.clone(), txout.0 as u64).unwrap();
@@ -301,7 +297,7 @@ mod test {
                 if tx_info.status.confirmed {
                     continue;
                 }
-                chain_start.childs.insert(Self::find_chain(c, tx_info.txid.clone(),visited));
+                chain_start.childs.insert(Self::find_chain(c, tx_info.txid.clone(), visited));
             }
             visited.insert(chain_start.clone());
             chain_start

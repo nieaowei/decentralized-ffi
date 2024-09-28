@@ -308,7 +308,7 @@ dictionary LocalOutput {
 };
 
 dictionary TxOut {
-  u64 value;
+  Amount value;
   Script script_pubkey;
 };
 
@@ -638,7 +638,7 @@ dictionary Vin{
 };
 
 dictionary Vout{
-  u64 value;
+  Amount value;
   Script scriptpubkey;
 };
 
@@ -657,7 +657,7 @@ dictionary OutputStatus {
 };
 
 dictionary PrevOut{
-  u64 value;
+  Amount value;
   Script scriptpubkey;
 };
 
@@ -670,7 +670,7 @@ dictionary Tx{
   u64 size;
   u64 weight;
   TxStatus status;
-  u64 fee;
+  Amount fee;
 };
 
 // ------------------------------------------------------------------------
@@ -788,7 +788,7 @@ interface Psbt {
   Transaction extract_tx();
 
   [Throws=PsbtError]
-  u64 fee();
+  Amount fee();
 
   [Throws=PsbtError]
   Psbt combine(Psbt other);

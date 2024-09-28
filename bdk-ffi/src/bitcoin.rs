@@ -2,7 +2,7 @@ use crate::error::{
     AddressParseError, FromScriptError, PsbtError, PsbtParseError, TransactionError,
 };
 
-use bitcoin_ffi::OutPoint;
+use bitcoin_ffi::{Amount, OutPoint};
 use bitcoin_ffi::Script;
 
 use bdk_bitcoind_rpc::bitcoincore_rpc::jsonrpc::serde_json;
@@ -206,12 +206,12 @@ impl Psbt {
         Ok(Arc::new(transaction))
     }
 
-    pub(crate) fn fee(&self) -> Result<u64, PsbtError> {
+    pub(crate) fn fee(&self) -> Result<Arc<Amount>, PsbtError> {
         self.0
             .lock()
             .unwrap()
             .fee()
-            .map(|fee| fee.to_sat())
+            .map(|fee| Arc::new(fee.into()))
             .map_err(PsbtError::from)
     }
 
@@ -261,16 +261,15 @@ impl From<&BdkTxIn> for TxIn {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct TxOut {
-    pub value: u64,
+    pub value: Arc<Amount>,
     pub script_pubkey: Arc<Script>,
 }
 
 impl From<&BdkTxOut> for TxOut {
     fn from(tx_out: &BdkTxOut) -> Self {
         TxOut {
-            value: tx_out.value.to_sat(),
+            value: Arc::new(Amount(tx_out.value)),
             script_pubkey: Arc::new(Script(tx_out.script_pubkey.clone())),
         }
     }
@@ -279,7 +278,7 @@ impl From<&BdkTxOut> for TxOut {
 impl From<TxOut> for BdkTxOut {
     fn from(tx_out: TxOut) -> Self {
         BdkTxOut {
-            value: BdkAmount::from_sat(tx_out.value),
+            value: BdkAmount::from(tx_out.value.0),
             script_pubkey: BdkScriptBuf::from(tx_out.script_pubkey.deref().clone()),
         }
     }
