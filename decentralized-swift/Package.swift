@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "bdk-swift",
+    name: "decentralized-swift",
     platforms: [
         .macOS(.v12),
         .iOS(.v15)
@@ -12,8 +12,8 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
-            name: "BitcoinDevKit",
-            targets: ["bdkFFI", "BitcoinDevKit"]),
+            name: "DecentralizedFFI",
+            targets: ["deffi", "DecentralizedFFI"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -26,14 +26,14 @@ let package = Package(
 //            name: "bdkFFI",
 //            url: "https://github.com/bitcoindevkit/bdk-swift/releases/download/0.3.0/bdkFFI.xcframework.zip",
 //            checksum: "7d4a2fdeb03fb3eff107e45ee3148dd9b67966406c82d6e3c19f653c27180cfd"),
-        .binaryTarget(name: "bdkFFI", path: "./bdkFFI.xcframework"),
+        .binaryTarget(name: "deffi", path: "./deffi.xcframework"),
         .target(
-            name: "BitcoinDevKit",
-            dependencies: ["bdkFFI"]
+            name: "DecentralizedFFI",
+            dependencies: ["deffi"]
         ),
         .testTarget(
-            name: "BitcoinDevKitTests",
-            dependencies: ["BitcoinDevKit"],
+            name: "DecentralizedTests",
+            dependencies: ["DecentralizedFFI"],
             resources: [
                 .copy("Resources/pre_existing_wallet_persistence_test.sqlite")
             ]

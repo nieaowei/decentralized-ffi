@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "bdk-swift",
+    name: "decentralized-swift",
     platforms: [
         .macOS(.v12),
         .iOS(.v15)
@@ -12,8 +12,8 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
-            name: "BitcoinDevKit",
-            targets: ["bdkFFI", "BitcoinDevKit"]),
+            name: "Decentralized",
+            targets: ["decentralizedFFI", "Decentralized"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -23,14 +23,14 @@ let package = Package(
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .binaryTarget(
-            name: "bdkFFI",
+            name: "decentralizedFFI",
             url: "BDKFFIURL",
             checksum: "BDKFFICHECKSUM"),
         .target(
-            name: "BitcoinDevKit",
-            dependencies: ["bdkFFI"]),
-        .testTarget(
-            name: "BitcoinDevKitTests",
-            dependencies: ["BitcoinDevKit"]),
+            name: "Decentralized",
+            dependencies: ["decentralizedFFI"]),
+//        .testTarget(
+//            name: "DecentralizedTests",
+//            dependencies: ["Decentralized"]),
     ]
 )

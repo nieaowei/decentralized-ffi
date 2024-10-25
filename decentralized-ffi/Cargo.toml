@@ -1,0 +1,56 @@
+[package]
+name = "decentralized-ffi"
+version = "1.0.0-beta5"
+homepage = "https://bitcoindevkit.org"
+repository = "https://github.com/bitcoindevkit/bdk"
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+name = "deffi"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[features]
+default = ["uniffi/cli"]
+
+[dependencies]
+bdk_wallet = { version = "1.0.0-beta.5", features = ["all-keys", "keys-bip39", "rusqlite"] }
+bdk_core = { version = "0.3.0" }
+bdk_esplora = { version = "0.19.0", default-features = false, features = ["std", "blocking", "blocking-https-rustls"] }
+bdk_electrum = { version = "0.19.0", default-features = false, features = ["use-rustls-ring"] }
+#bitcoin-ffi = { git = "https://github.com/bitcoindevkit/bitcoin-ffi", tag = "v0.1.2" }
+
+uniffi = { version = "=0.28.2" }
+thiserror = "1.0.58"
+serde = { version = "1.0.203", features = ["derive"] }
+
+#serde_json = "1.0.128"
+jsonpath-rust = { version = "0.7.1" }
+minreq = { version = "2.12.0", default-features = false, features = ["proxy", "https-rustls"] }
+chrono = "0.4.38"
+hmac = "0.13.0-pre.4"
+sha2 = "0.11.0-pre.4"
+base64 = "0.22.1"
+regex = "1.11.0"
+url = "2.5.2"
+ordinals = { version = "0.0.10" }
+
+
+[build-dependencies]
+uniffi = { version = "=0.28.2", features = ["build"] }
+
+[dev-dependencies]
+uniffi = { version = "=0.28.2", features = ["bindgen-tests"] }
+assert_matches = "1.5.0"
+
+[profile.release-smaller]
+inherits = "release"
+opt-level = 'z'     # Optimize for size.
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+panic = "abort"     # Abort on panic
+strip = "debuginfo" # Partially strip symbols from binary

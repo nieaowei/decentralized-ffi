@@ -1,0 +1,14 @@
+[bindings.kotlin]
+package_name = "app.decentralizedffi"
+cdylib_name = "deffi"
+
+[bindings.python]
+cdylib_name = "deffi"
+
+[bindings.swift]
+module_name = "DecentralizedFFI"
+cdylib_name = "deffi"
+
+[bindings.kotlin.external_packages]
+# Map the crate names from [External={name}] into Kotlin package names
+#bitcoin_ffi = "org.rustbitcoin.bitcoin"

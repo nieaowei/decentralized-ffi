@@ -1,9 +1,6 @@
-use crate::bitcoin::{Address, Transaction, TxOut};
+use crate::bitcoin::{Address, Amount, OutPoint, Script, Transaction, TxOut};
 use crate::error::RequestBuilderError;
 
-use bitcoin_ffi::Amount;
-use bitcoin_ffi::OutPoint;
-use bitcoin_ffi::Script;
 
 use bdk_core::spk_client::SyncItem;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
@@ -12,16 +9,18 @@ use bdk_wallet::chain::spk_client::FullScanRequestBuilder as BdkFullScanRequestB
 use bdk_wallet::chain::spk_client::SyncRequest as BdkSyncRequest;
 use bdk_wallet::chain::spk_client::SyncRequestBuilder as BdkSyncRequestBuilder;
 use bdk_wallet::chain::tx_graph::CanonicalTx as BdkCanonicalTx;
-use bdk_wallet::chain::{ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime, ConfirmationTime};
+use bdk_wallet::chain::{ChainPosition as BdkChainPosition, ConfirmationBlockTime as BdkConfirmationBlockTime, ConfirmationTime as BdkConfirmationTime};
 use bdk_wallet::AddressInfo as BdkAddressInfo;
 use bdk_wallet::Balance as BdkBalance;
-use bdk_wallet::KeychainKind;
 use bdk_wallet::LocalOutput as BdkLocalOutput;
 use bdk_wallet::Update as BdkUpdate;
+use bdk_wallet::KeychainKind as BdkKeychainKind;
 
 use std::sync::{Arc, Mutex};
+use bdk_wallet::bitcoin::consensus::encode::serialize_hex;
+use crate::wallet::KeychainKind;
 
-#[derive(Debug)]
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChainPosition {
     Confirmed {
         confirmation_block_time: ConfirmationBlockTime,
@@ -31,18 +30,19 @@ pub enum ChainPosition {
     },
 }
 
-#[derive(Debug)]
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConfirmationBlockTime {
     pub block_id: BlockId,
     pub confirmation_time: u64,
 }
 
-#[derive(Debug)]
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BlockId {
     pub height: u32,
     pub hash: String,
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CanonicalTx {
     pub transaction: Arc<Transaction>,
     pub chain_position: ChainPosition,
@@ -73,11 +73,13 @@ impl From<BdkCanonicalTx<'_, Arc<BdkTransaction>, BdkConfirmationBlockTime>> for
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ScriptAmount {
     pub script: Arc<Script>,
     pub amount: Arc<Amount>,
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AddressInfo {
     pub index: u32,
     pub address: Arc<Address>,
@@ -89,11 +91,12 @@ impl From<BdkAddressInfo> for AddressInfo {
         AddressInfo {
             index: address_info.index,
             address: Arc::new(address_info.address.into()),
-            keychain: address_info.keychain,
+            keychain: address_info.keychain.into(),
         }
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Balance {
     pub immature: Arc<Amount>,
     pub trusted_pending: Arc<Amount>,
@@ -116,6 +119,7 @@ impl From<BdkBalance> for Balance {
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalOutput {
     pub outpoint: OutPoint,
     pub txout: TxOut,
@@ -126,61 +130,75 @@ pub struct LocalOutput {
 
 impl From<BdkLocalOutput> for LocalOutput {
     fn from(local_utxo: BdkLocalOutput) -> Self {
+        let serialize_hex = serialize_hex(&local_utxo.txout);
         LocalOutput {
             outpoint: OutPoint {
-                txid: local_utxo.outpoint.txid,
+                txid: Arc::new(local_utxo.outpoint.txid.into()),
                 vout: local_utxo.outpoint.vout,
             },
             txout: TxOut {
                 value: Arc::new(Amount(local_utxo.txout.value)),
                 script_pubkey: Arc::new(Script(local_utxo.txout.script_pubkey)),
+                serialize_hex: serialize_hex,
             },
-            keychain: local_utxo.keychain,
+            keychain: local_utxo.keychain.into(),
             is_spent: local_utxo.is_spent,
             confirmation_time: local_utxo.confirmation_time.into(),
         }
     }
 }
 
-// pub enum  ConfirmationTime{
-//     Confirmed {
-//         height: u32,
-//         time: u64,
-//     },
-//     Unconfirmed {
-//         /// The last-seen timestamp in unix seconds.
-//         last_seen: u64,
-//     },
-// }
-//
-// impl From<BdkConfirmationTime> for ConfirmationTime {
-//     fn from(value: BdkConfirmationTime) -> Self {
-//         Self{
-//
-//         }
-//     }
-// }
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ConfirmationTime {
+    Confirmed {
+        height: u32,
+        time: u64,
+    },
+    Unconfirmed {
+        /// The last-seen timestamp in unix seconds.
+        last_seen: u64,
+    },
+}
+
+impl From<BdkConfirmationTime> for ConfirmationTime {
+    fn from(value: BdkConfirmationTime) -> Self {
+        match value {
+            BdkConfirmationTime::Confirmed { height, time } => {
+                ConfirmationTime::Confirmed { height, time }
+            }
+            BdkConfirmationTime::Unconfirmed { last_seen } => {
+                ConfirmationTime::Unconfirmed { last_seen }
+            }
+        }
+    }
+}
 
 // Callback for the FullScanRequest
+#[uniffi::export]
 pub trait FullScanScriptInspector: Sync + Send {
     fn inspect(&self, keychain: KeychainKind, index: u32, script: Arc<Script>);
 }
 
 // Callback for the SyncRequest
+#[uniffi::export]
 pub trait SyncScriptInspector: Sync + Send {
     fn inspect(&self, script: Arc<Script>, total: u64);
 }
 
+#[derive(uniffi::Object)]
 pub struct FullScanRequestBuilder(
-    pub(crate) Mutex<Option<BdkFullScanRequestBuilder<KeychainKind>>>,
+    pub(crate) Mutex<Option<BdkFullScanRequestBuilder<BdkKeychainKind>>>,
 );
 
-pub struct SyncRequestBuilder(pub(crate) Mutex<Option<BdkSyncRequestBuilder<(KeychainKind, u32)>>>);
+#[derive(uniffi::Object)]
+pub struct SyncRequestBuilder(pub(crate) Mutex<Option<BdkSyncRequestBuilder<(BdkKeychainKind, u32)>>>);
 
-pub struct FullScanRequest(pub(crate) Mutex<Option<BdkFullScanRequest<KeychainKind>>>);
+#[derive(uniffi::Object)]
+pub struct FullScanRequest(pub(crate) Mutex<Option<BdkFullScanRequest<BdkKeychainKind>>>);
+#[derive(uniffi::Object)]
+pub struct SyncRequest(pub(crate) Mutex<Option<BdkSyncRequest<(BdkKeychainKind, u32)>>>);
 
-pub struct SyncRequest(pub(crate) Mutex<Option<BdkSyncRequest<(KeychainKind, u32)>>>);
-
+#[uniffi::export]
 impl SyncRequestBuilder {
     pub fn inspect_spks(
         &self,
@@ -215,6 +233,7 @@ impl SyncRequestBuilder {
     }
 }
 
+#[uniffi::export]
 impl FullScanRequestBuilder {
     pub fn inspect_spks_for_all_keychains(
         &self,
@@ -227,7 +246,7 @@ impl FullScanRequestBuilder {
             .take()
             .ok_or(RequestBuilderError::RequestAlreadyConsumed)?;
         let full_scan_request_builder = guard.inspect(move |keychain, index, script| {
-            inspector.inspect(keychain, index, Arc::new(Script(script.to_owned())))
+            inspector.inspect(keychain.into(), index, Arc::new(Script(script.to_owned())))
         });
         Ok(Arc::new(FullScanRequestBuilder(Mutex::new(Some(
             full_scan_request_builder,
@@ -245,26 +264,29 @@ impl FullScanRequestBuilder {
     }
 }
 
+#[derive(uniffi::Object)]
 pub struct Update(pub(crate) BdkUpdate);
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SentAndReceivedValues {
     pub sent: Arc<Amount>,
     pub received: Arc<Amount>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, uniffi::Enum)]
 pub enum RbfValue {
     Default,
     Value(u32),
 }
 
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TransactionAndLastSeen {
     pub tx: Arc<Transaction>,
     pub last_seen: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TxOrdering {
     Shuffle,
     Untouched,

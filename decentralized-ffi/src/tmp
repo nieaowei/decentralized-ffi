@@ -1,0 +1,7 @@
+#[derive(uniffi::Object, Debug, Clone, PartialEq, Eq, Hash)]
+#[uniffi::export(Debug, Display, Eq, Hash)]
+
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
+
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]

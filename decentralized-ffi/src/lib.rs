@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 mod bitcoin;
 mod descriptor;
 mod electrum;
@@ -9,9 +10,12 @@ mod tx_builder;
 mod types;
 mod wallet;
 mod testnet4;
-mod rune;
+mod ordinal;
 
 mod utils;
+
+#[macro_use]
+mod macros;
 
 use crate::bitcoin::Address;
 use crate::bitcoin::Psbt;
@@ -19,7 +23,12 @@ use crate::bitcoin::BlockHash;
 use crate::bitcoin::Transaction;
 use crate::bitcoin::TxIn;
 use crate::bitcoin::TxOut;
-use crate::testnet4::CustomNetwork;
+use crate::bitcoin::Amount;
+use crate::bitcoin::FeeRate;
+use crate::bitcoin::OutPoint;
+use crate::bitcoin::Script;
+use crate::bitcoin::Txid;
+use crate::testnet4::Network;
 use crate::descriptor::Descriptor;
 use crate::electrum::ElectrumClient;
 use crate::error::AddressParseError;
@@ -76,28 +85,33 @@ use crate::types::SyncRequestBuilder;
 use crate::types::SyncScriptInspector;
 use crate::types::Update;
 use crate::types::TxOrdering;
+use crate::types::ConfirmationTime;
 use crate::wallet::Wallet;
-
-use bitcoin_ffi::Amount;
-use bitcoin_ffi::FeeRate;
-use bitcoin_ffi::Network;
-use bitcoin_ffi::OutPoint;
-use bitcoin_ffi::Script;
-
-use bdk_wallet::chain::ConfirmationTime;
-
-use bdk_wallet::keys::bip39::WordCount;
-use bdk_wallet::tx_builder::ChangeSpendPolicy;
-use bdk_wallet::ChangeSet;
-use bdk_wallet::KeychainKind;
+use crate::keys::WordCount;
+use crate::wallet::ChangeSpendPolicy;
+// use bdk_wallet::ChangeSet;
+use crate::wallet::KeychainKind;
 
 use crate::utils::script_to_asm_string;
+use crate::utils::new_txin_from_hex;
+use crate::utils::new_txout_from_hex;
+use crate::utils::get_json_info_from_url;
+use crate::utils::UtilsError;
 
-use crate::rune::RuneParseError;
-use crate::rune::Rune;
-use crate::rune::Edict;
-use crate::rune::RuneId;
-use crate::rune::extract_rune_from_script;
+use crate::ordinal::rune::RuneParseError;
+use crate::ordinal::rune::Rune;
+use crate::ordinal::rune::Edict;
+use crate::ordinal::rune::RuneId;
+use crate::ordinal::rune::extract_rune_from_script;
 
+use crate::ordinal::get_single_anyone_pay_tx_pair;
+use crate::ordinal::build_rune_snipe_psbt;
+use crate::ordinal::TxInAndTxOut;
+use crate::ordinal::SnipeRuneUtxoPair;
+use crate::ordinal::SnipePsbtPair;
+use crate::ordinal::SnipeInscriptionPair;
+use crate::ordinal::snipe::SnipeError;
 
-uniffi::include_scaffolding!("bdk");
+// uniffi::include_scaffolding!("bdk");
+
+uniffi::setup_scaffolding!();

@@ -3,12 +3,10 @@ use bdk_wallet::bitcoin::hashes::{sha256d, Hash};
 use bdk_wallet::bitcoin::opcodes::all::OP_CHECKSIG;
 use bdk_wallet::bitcoin::script::{write_scriptint, PushBytes};
 use bdk_wallet::bitcoin::network::Network as BitcoinNetwork;
-use serde::{Deserialize, Serialize};
 
 #[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CustomNetwork {
+#[derive(uniffi::Enum)]
+pub enum Network {
     Bitcoin,
     Signet,
     Testnet,
@@ -16,20 +14,20 @@ pub enum CustomNetwork {
     Regtest,
 }
 
-impl From<BitcoinNetwork> for CustomNetwork {
+impl From<BitcoinNetwork> for Network {
     fn from(value: BitcoinNetwork) -> Self {
         match value {
             BitcoinNetwork::Bitcoin => {
-                CustomNetwork::Bitcoin
+                Network::Bitcoin
             }
             BitcoinNetwork::Testnet => {
-                CustomNetwork::Testnet
+                Network::Testnet
             }
             BitcoinNetwork::Signet => {
-                CustomNetwork::Signet
+                Network::Signet
             }
             BitcoinNetwork::Regtest => {
-                CustomNetwork::Regtest
+                Network::Regtest
             }
             _ => {
                 unreachable!()
@@ -38,22 +36,22 @@ impl From<BitcoinNetwork> for CustomNetwork {
     }
 }
 
-impl CustomNetwork {
+impl Network {
     pub fn to_bitcoin_network(&self) -> BitcoinNetwork {
         match self {
-            CustomNetwork::Bitcoin => {
+            Network::Bitcoin => {
                 BitcoinNetwork::Bitcoin
             }
-            CustomNetwork::Signet => {
+            Network::Signet => {
                 BitcoinNetwork::Signet
             }
-            CustomNetwork::Testnet => {
+            Network::Testnet => {
                 BitcoinNetwork::Testnet
             }
-            CustomNetwork::Testnet4 => {
+            Network::Testnet4 => {
                 BitcoinNetwork::Testnet
             }
-            CustomNetwork::Regtest => {
+            Network::Regtest => {
                 BitcoinNetwork::Regtest
             }
         }
@@ -84,7 +82,7 @@ fn bitcoin_testnet4_genesis_tx() -> Transaction {
     let len = write_scriptint(&mut buf, 4);
     in_script = in_script.push_slice(&<&PushBytes>::from(&buf)[..len]);
 
-    let pb = unsafe{&*(b"03/May/2024 000000000000000000001ebd58c244970b3aa9d783bb001011fbe8ea8e98e00e" as *const [u8] as *const PushBytes)};
+    let pb = unsafe { &*(b"03/May/2024 000000000000000000001ebd58c244970b3aa9d783bb001011fbe8ea8e98e00e" as *const [u8] as *const PushBytes) };
     in_script = in_script.push_slice(&pb);
 
 

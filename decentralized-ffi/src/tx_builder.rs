@@ -1,25 +1,25 @@
-use crate::bitcoin::Psbt;
+use crate::bitcoin::{OutPoint, Psbt, TxIn, TxOut};
 use crate::error::CreateTxError;
 use crate::types::{RbfValue, ScriptAmount, TxOrdering};
-use crate::wallet::Wallet;
+use crate::wallet::{ChangeSpendPolicy, Wallet};
+use crate::bitcoin::{Amount, FeeRate, Script};
 
-use bitcoin_ffi::{Amount, FeeRate, Script};
-
-use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::{OutPoint, Sequence, Txid};
+use bdk_wallet::bitcoin::{psbt, Sequence, Txid, Weight, Witness};
 use bdk_wallet::bitcoin::amount::Amount as BdkAmount;
 use bdk_wallet::bitcoin::Psbt as BdkPsbt;
 use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
-use bdk_wallet::TxOrdering as BdkTxOrdering;
-use bdk_wallet::ChangeSpendPolicy;
+use bdk_wallet::{TxOrdering as BdkTxOrdering};
 
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
-#[derive(Clone)]
+use bdk_wallet::coin_selection::{DefaultCoinSelectionAlgorithm, LargestFirstCoinSelection};
+
+#[derive(uniffi::Object,Clone)]
 pub struct TxBuilder {
     pub(crate) add_global_xpubs: bool,
     pub(crate) recipients: Vec<(BdkScriptBuf, BdkAmount)>,
-    pub(crate) utxos: Vec<OutPoint>,
+    pub(crate) utxos: Vec<Utxo>,
     pub(crate) unspendable: HashSet<OutPoint>,
     pub(crate) change_policy: ChangeSpendPolicy,
     pub(crate) manually_selected_only: bool,
@@ -27,12 +27,19 @@ pub struct TxBuilder {
     pub(crate) fee_absolute: Option<Arc<Amount>>,
     pub(crate) drain_wallet: bool,
     pub(crate) drain_to: Option<BdkScriptBuf>,
-    pub(crate) rbf: Option<RbfValue>,
+    pub(crate) sequence: Option<u32>,
     pub(crate) tx_ordering: Option<TxOrdering>,
     // pub(crate) data: Vec<u8>,
 }
 
+#[derive(Clone)]
+pub enum Utxo {
+    Local(OutPoint),
+    Foreign((OutPoint, psbt::Input, Weight)),
+}
+#[uniffi::export]
 impl TxBuilder {
+    #[uniffi::constructor]
     pub(crate) fn new() -> Self {
         TxBuilder {
             add_global_xpubs: false,
@@ -45,7 +52,7 @@ impl TxBuilder {
             fee_absolute: None,
             drain_wallet: false,
             drain_to: None,
-            rbf: None,
+            sequence: None,
             tx_ordering: None,
             // data: Vec::new(),
         }
@@ -99,9 +106,32 @@ impl TxBuilder {
         self.add_utxos(vec![outpoint])
     }
 
-    pub(crate) fn add_utxos(&self, mut outpoints: Vec<OutPoint>) -> Arc<Self> {
+    pub(crate) fn add_utxos(&self, outpoints: Vec<OutPoint>) -> Arc<Self> {
         let mut utxos = self.utxos.to_vec();
-        utxos.append(&mut outpoints);
+        utxos.append(&mut outpoints.into_iter().map(|x| Utxo::Local(x)).collect());
+        Arc::new(TxBuilder {
+            utxos,
+            ..self.clone()
+        })
+    }
+
+    pub fn add_foreign_utxo(
+        &self,
+        txin: TxIn,
+        prevout: TxOut,
+    ) -> Arc<Self> {
+        let psbt_input = psbt::Input {
+            witness_utxo: Some(bdk_wallet::bitcoin::TxOut { value: prevout.value.0, script_pubkey: prevout.script_pubkey.0.clone() }),
+            final_script_witness: Some(Witness::from(txin.witness.as_slice())), // 可以优化少打一个请求 直接解析pool
+            final_script_sig: Some(txin.script_sig.0.clone()),
+            ..Default::default()
+        };
+        let txin = bdk_wallet::bitcoin::TxIn::from(&txin);
+        let usize = Weight::from_wu_usize(txin.total_size());
+
+        let mut utxos = self.utxos.to_vec();
+
+        utxos.push(Utxo::Foreign((txin.previous_output.into(), psbt_input, usize)));
         Arc::new(TxBuilder {
             utxos,
             ..self.clone()
@@ -164,16 +194,11 @@ impl TxBuilder {
         })
     }
 
-    pub(crate) fn enable_rbf(&self) -> Arc<Self> {
-        Arc::new(TxBuilder {
-            rbf: Some(RbfValue::Default),
-            ..self.clone()
-        })
-    }
 
-    pub(crate) fn enable_rbf_with_sequence(&self, nsequence: u32) -> Arc<Self> {
+
+    pub(crate) fn set_exact_sequence(&self, nsequence: u32) -> Arc<Self> {
         Arc::new(TxBuilder {
-            rbf: Some(RbfValue::Value(nsequence)),
+            sequence: Some(nsequence),
             ..self.clone()
         })
     }
@@ -188,22 +213,34 @@ impl TxBuilder {
     pub(crate) fn finish(&self, wallet: &Arc<Wallet>) -> Result<Arc<Psbt>, CreateTxError> {
         // TODO: I had to change the wallet here to be mutable. Why is that now required with the 1.0 API?
         let mut wallet = wallet.get_wallet();
-        let mut tx_builder = wallet.build_tx();
+        let mut tx_builder = wallet.build_tx().coin_selection(LargestFirstCoinSelection);
+
         if self.add_global_xpubs {
             tx_builder.add_global_xpubs();
         }
         for (script, amount) in &self.recipients {
             tx_builder.add_recipient(script.clone(), *amount);
         }
-        tx_builder.change_policy(self.change_policy);
+        tx_builder.change_policy(self.change_policy.clone().into());
         if !self.utxos.is_empty() {
-            tx_builder
-                .add_utxos(&self.utxos)
-                .map_err(CreateTxError::from)?;
+            for utxo in self.utxos.clone() {
+                match utxo {
+                    Utxo::Local(lo) => {
+                        tx_builder
+                            .add_utxo(lo.into())
+                            .map_err(CreateTxError::from)?;
+                    }
+                    Utxo::Foreign((op,psbt_input,weight)) => {
+                        tx_builder
+                            .add_foreign_utxo(op.into(), psbt_input, weight)
+                            .map_err(CreateTxError::from)?;
+                    }
+                }
+            }
         }
         if !self.unspendable.is_empty() {
             let bdk_unspendable: Vec<OutPoint> = self.unspendable.clone().into_iter().collect();
-            tx_builder.unspendable(bdk_unspendable);
+            tx_builder.unspendable(bdk_unspendable.into_iter().map(|e| e.into()).collect());
         }
         if self.manually_selected_only {
             tx_builder.manually_selected_only();
@@ -220,18 +257,11 @@ impl TxBuilder {
         if let Some(script) = &self.drain_to {
             tx_builder.drain_to(script.clone());
         }
-        if let Some(rbf) = &self.rbf {
-            match *rbf {
-                RbfValue::Default => {
-                    tx_builder.enable_rbf();
-                }
-                RbfValue::Value(nsequence) => {
-                    tx_builder.enable_rbf_with_sequence(Sequence(nsequence));
-                }
-            }
+        if let Some(sequence) = self.sequence {
+            tx_builder.set_exact_sequence(Sequence::from_consensus(sequence));
         }
 
-        if let Some(ordering) = &self.tx_ordering{
+        if let Some(ordering) = &self.tx_ordering {
             match ordering {
                 TxOrdering::Shuffle => {
                     tx_builder.ordering(BdkTxOrdering::Shuffle);
@@ -241,42 +271,37 @@ impl TxBuilder {
                 }
             }
         }
-
         let psbt = tx_builder.finish().map_err(CreateTxError::from)?;
 
         Ok(Arc::new(psbt.into()))
     }
 }
 
-#[derive(Clone)]
+#[derive(uniffi::Object, Clone)]
 pub(crate) struct BumpFeeTxBuilder {
     pub(crate) txid: String,
     pub(crate) fee_rate: Arc<FeeRate>,
-    pub(crate) rbf: Option<RbfValue>,
+    pub(crate) sequence: Option<u32>,
 }
 
+#[uniffi::export]
 impl BumpFeeTxBuilder {
+    #[uniffi::constructor]
     pub(crate) fn new(txid: String, fee_rate: Arc<FeeRate>) -> Self {
         Self {
             txid,
             fee_rate,
-            rbf: None,
+            sequence: None,
         }
     }
 
-    pub(crate) fn enable_rbf(&self) -> Arc<Self> {
-        Arc::new(Self {
-            rbf: Some(RbfValue::Default),
+    pub(crate) fn set_exact_sequence(&self, nsequence: u32) -> Arc<Self> {
+        Arc::new(BumpFeeTxBuilder {
+            sequence: Some(nsequence),
             ..self.clone()
         })
     }
 
-    pub(crate) fn enable_rbf_with_sequence(&self, nsequence: u32) -> Arc<Self> {
-        Arc::new(Self {
-            rbf: Some(RbfValue::Value(nsequence)),
-            ..self.clone()
-        })
-    }
 
     pub(crate) fn finish(&self, wallet: &Arc<Wallet>) -> Result<Arc<Psbt>, CreateTxError> {
         let txid = Txid::from_str(self.txid.as_str()).map_err(|_| CreateTxError::UnknownUtxo {
@@ -285,15 +310,8 @@ impl BumpFeeTxBuilder {
         let mut wallet = wallet.get_wallet();
         let mut tx_builder = wallet.build_fee_bump(txid).map_err(CreateTxError::from)?;
         tx_builder.fee_rate(self.fee_rate.0);
-        if let Some(rbf) = &self.rbf {
-            match *rbf {
-                RbfValue::Default => {
-                    tx_builder.enable_rbf();
-                }
-                RbfValue::Value(nsequence) => {
-                    tx_builder.enable_rbf_with_sequence(Sequence(nsequence));
-                }
-            }
+        if let Some(sequence) = self.sequence {
+            tx_builder.set_exact_sequence(Sequence(sequence));
         }
         let psbt: BdkPsbt = tx_builder.finish()?;
 

@@ -4,13 +4,9 @@ use bdk_wallet::bitcoin::bip32::DerivationPath as BdkDerivationPath;
 use bdk_wallet::bitcoin::key::Secp256k1;
 use bdk_wallet::bitcoin::secp256k1::rand;
 use bdk_wallet::bitcoin::secp256k1::rand::Rng;
-use bdk_wallet::bitcoin::Network;
-use bdk_wallet::keys::bip39::WordCount;
+use bdk_wallet::keys::bip39::WordCount as BdkWordCount;
 use bdk_wallet::keys::bip39::{Language, Mnemonic as BdkMnemonic};
-use bdk_wallet::keys::{
-    DerivableKey, DescriptorPublicKey as BdkDescriptorPublicKey,
-    DescriptorSecretKey as BdkDescriptorSecretKey, ExtendedKey, GeneratableKey, GeneratedKey,
-};
+use bdk_wallet::keys::{DerivableKey, DescriptorPublicKey as BdkDescriptorPublicKey, DescriptorSecretKey as BdkDescriptorSecretKey, ExtendedKey, GeneratableKey, GeneratedKey, SinglePriv};
 use bdk_wallet::miniscript::descriptor::{DescriptorXKey, Wildcard};
 use bdk_wallet::miniscript::BareCtx;
 
@@ -18,10 +14,51 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use crate::testnet4::Network;
 
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum WordCount {
+    /// 12 words mnemonic (128 bits entropy)
+    Words12 = 128,
+    /// 15 words mnemonic (160 bits entropy)
+    Words15 = 160,
+    /// 18 words mnemonic (192 bits entropy)
+    Words18 = 192,
+    /// 21 words mnemonic (224 bits entropy)
+    Words21 = 224,
+    /// 24 words mnemonic (256 bits entropy)
+    Words24 = 256,
+}
+
+impl From<WordCount> for BdkWordCount {
+    fn from(value: WordCount) -> Self {
+        match value {
+            WordCount::Words12 => {
+                BdkWordCount::Words12
+            }
+            WordCount::Words15 => {
+                BdkWordCount::Words15
+            }
+            WordCount::Words18 => {
+                BdkWordCount::Words18
+            }
+            WordCount::Words21 => {
+                BdkWordCount::Words21
+            }
+            WordCount::Words24 => {
+                BdkWordCount::Words24
+            }
+        }
+    }
+}
+
+#[derive(uniffi::Object, Debug, Clone, PartialEq, Eq, Hash)]
+#[uniffi::export(Debug, Display, Eq, Hash)]
 pub(crate) struct Mnemonic(BdkMnemonic);
 
+#[uniffi::export]
 impl Mnemonic {
+    #[uniffi::constructor]
     pub(crate) fn new(word_count: WordCount) -> Self {
         // TODO 4: I DON'T KNOW IF THIS IS A DECENT WAY TO GENERATE ENTROPY PLEASE CONFIRM
         let mut rng = rand::thread_rng();
@@ -29,17 +66,19 @@ impl Mnemonic {
         rng.fill(&mut entropy);
 
         let generated_key: GeneratedKey<_, BareCtx> =
-            BdkMnemonic::generate_with_entropy((word_count, Language::English), entropy).unwrap();
+            BdkMnemonic::generate_with_entropy((BdkWordCount::from(word_count), Language::English), entropy).unwrap();
         let mnemonic = BdkMnemonic::parse_in(Language::English, generated_key.to_string()).unwrap();
         Mnemonic(mnemonic)
     }
 
-    pub(crate) fn from_string(mnemonic: String) -> Result<Self, Bip39Error> {
+    #[uniffi::constructor]
+    pub(crate) fn from_string(mnemonic: &str) -> Result<Self, Bip39Error> {
         BdkMnemonic::from_str(&mnemonic)
             .map(Mnemonic)
             .map_err(Bip39Error::from)
     }
 
+    #[uniffi::constructor]
     pub(crate) fn from_entropy(entropy: Vec<u8>) -> Result<Self, Bip39Error> {
         BdkMnemonic::from_entropy(entropy.as_slice())
             .map(Mnemonic)
@@ -47,17 +86,21 @@ impl Mnemonic {
     }
 }
 
+
 impl Display for Mnemonic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
+#[derive(uniffi::Object)]
 pub(crate) struct DerivationPath {
     inner_mutex: Mutex<BdkDerivationPath>,
 }
 
+#[uniffi::export]
 impl DerivationPath {
+    #[uniffi::constructor]
     pub(crate) fn new(path: String) -> Result<Self, Bip32Error> {
         BdkDerivationPath::from_str(&path)
             .map(|x| DerivationPath {
@@ -67,26 +110,46 @@ impl DerivationPath {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, uniffi::Object)]
 pub struct DescriptorSecretKey(pub(crate) BdkDescriptorSecretKey);
 
+#[uniffi::export]
 impl DescriptorSecretKey {
+    #[uniffi::constructor]
     pub(crate) fn new(network: Network, mnemonic: &Mnemonic, password: Option<String>) -> Self {
         let mnemonic = mnemonic.0.clone();
         let xkey: ExtendedKey = (mnemonic, password).into_extended_key().unwrap();
         let descriptor_secret_key = BdkDescriptorSecretKey::XPrv(DescriptorXKey {
             origin: None,
-            xkey: xkey.into_xprv(network).unwrap(),
+            xkey: xkey.into_xprv(network.to_bitcoin_network()).unwrap(),
             derivation_path: BdkDerivationPath::master(),
             wildcard: Wildcard::Unhardened,
         });
         Self(descriptor_secret_key)
     }
 
+    #[uniffi::constructor]
     pub(crate) fn from_string(private_key: String) -> Result<Self, DescriptorKeyError> {
         let descriptor_secret_key = BdkDescriptorSecretKey::from_str(private_key.as_str())
             .map_err(DescriptorKeyError::from)?;
         Ok(Self(descriptor_secret_key))
+    }
+
+    pub(crate) fn derive_priv(&self, path: &DerivationPath) -> Result<Arc<DescriptorSecretKey>, DescriptorKeyError> {
+        let secp = Secp256k1::new();
+        let descriptor_secret_key = &self.0;
+        let path = path.inner_mutex.lock().unwrap().deref().clone();
+        match descriptor_secret_key {
+            BdkDescriptorSecretKey::Single(_) => Err(DescriptorKeyError::InvalidKeyType),
+            BdkDescriptorSecretKey::XPrv(descriptor_x_key) => {
+                let xpriv = descriptor_x_key.xkey.derive_priv(&secp, &path)?;
+
+                let xprv = BdkDescriptorSecretKey::Single(SinglePriv { origin: Some((xpriv.fingerprint(&secp), path.clone())), key: xpriv.to_priv() });
+                // let descriptor_secret_key = BdkDescriptorSecretKey::from_str(&xpriv.to_priv().to_wif()).unwrap();
+                Ok(Arc::new(DescriptorSecretKey(xprv)))
+            }
+            BdkDescriptorSecretKey::MultiXPrv(_) => Err(DescriptorKeyError::InvalidKeyType),
+        }
     }
 
     pub(crate) fn derive(&self, path: &DerivationPath) -> Result<Arc<Self>, DescriptorKeyError> {
@@ -163,10 +226,12 @@ impl DescriptorSecretKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, uniffi::Object)]
 pub struct DescriptorPublicKey(pub(crate) BdkDescriptorPublicKey);
 
+#[uniffi::export]
 impl DescriptorPublicKey {
+    #[uniffi::constructor]
     pub(crate) fn from_string(public_key: String) -> Result<Self, DescriptorKeyError> {
         let descriptor_public_key = BdkDescriptorPublicKey::from_str(public_key.as_str())
             .map_err(DescriptorKeyError::from)?;
@@ -227,13 +292,22 @@ impl DescriptorPublicKey {
 
 #[cfg(test)]
 mod test {
+    use std::ops::Deref;
+    use std::str::FromStr;
     use crate::error::DescriptorKeyError;
     use crate::keys::{DerivationPath, DescriptorPublicKey, DescriptorSecretKey, Mnemonic};
-    use bdk_wallet::bitcoin::Network;
     use std::sync::Arc;
+    use bdk_wallet::bitcoin::bip32::{ExtendendPrivKey, Xpriv};
+    use bdk_wallet::keys::{DerivableKey, ExtendedKey};
+    use bdk_wallet::{bip39, bitcoin, descriptor, miniscript, KeychainKind, Wallet};
+    use bdk_wallet::bitcoin::bip32;
+    use bdk_wallet::bitcoin::key::Secp256k1;
+    use bdk_wallet::descriptor::{Descriptor, IntoWalletDescriptor};
+    use bdk_wallet::miniscript::Tap;
+    use crate::testnet4::Network;
 
     fn get_inner() -> DescriptorSecretKey {
-        let mnemonic = Mnemonic::from_string("chaos fabric time speed sponsor all flat solution wisdom trophy crack object robot pave observe combine where aware bench orient secret primary cable detect".to_string()).unwrap();
+        let mnemonic = Mnemonic::from_string("chaos fabric time speed sponsor all flat solution wisdom trophy crack object robot pave observe combine where aware bench orient secret primary cable detect").unwrap();
         DescriptorSecretKey::new(Network::Testnet, &mnemonic, None)
     }
 
@@ -267,6 +341,78 @@ mod test {
     ) -> Result<Arc<DescriptorPublicKey>, DescriptorKeyError> {
         let path = DerivationPath::new(path.to_string()).unwrap();
         key.extend(&path)
+    }
+
+    #[test]
+    fn test_generate_single() {
+        let mnemonic = Mnemonic::from_string("chaos fabric time speed sponsor all flat solution wisdom trophy crack object robot pave observe combine where aware bench orient secret primary cable detect").unwrap();
+        let a = DescriptorSecretKey::new(Network::Bitcoin, &mnemonic, None);
+        // let seed = mnemonic.0.to_seed("");
+        // let xp = Xpriv::new_master(bitcoin::Network::Bitcoin, &seed).unwrap();
+        // let a: ExtendedKey<Tap> = ExtendedKey::from(xp);
+        // let derivation_path = bip32::DerivationPath::from_str("m/86'/0'/0'/0/1").expect("Invalid derivation path");
+        // let a = xp.derive_priv(&Secp256k1::new(), &derivation_path).unwrap();
+        // let private_key = a.to_priv().to_wif();
+
+        // println!("{}", private_key);
+
+        // let ds = DescriptorSecretKey::from_string(private_key.clone()).unwrap();
+
+        // println!("{}", ds.as_string());
+
+        // let bitcoin_xprv = ExtendedPrivKey::from_str(&derived_xprv.to_string(Prefix::XPRV)).expect("Error converting to bitcoin xprv");
+        //
+        // // 生成公钥用于描述符
+        // let bitcoin_xpub = ExtendedPubKey::from_private(&bitcoin_xprv, Network::Bitcoin);
+
+        // let ds = DescriptorSecretKey::new(Network::Bitcoin, &mnemonic, None);
+
+        // let d = Descriptor::new_tr(ds.as_string(),None).unwrap();
+        // let c = Descriptor::new_tr(private_key, None).unwrap();
+        // println!("{}", c.to_string());
+
+        // let d = Descriptor::new_tr(a.private_key, None).unwrap();
+        // println!("{}", d.to_string());
+        // match ds.0 {
+        //     miniscript::descriptor::DescriptorSecretKey::Single(s) => {}
+        //     miniscript::descriptor::DescriptorSecretKey::XPrv(x) => {
+        //         x.xkey.derive_priv()
+        //     }
+        //     miniscript::descriptor::DescriptorSecretKey::MultiXPrv(mp) => {
+        //
+        //     }
+        // }
+        // let a = ds.derive_priv(&crate::DerivationPath::new("m/86'/0'/0'/0/0".to_string()).unwrap()).unwrap();
+        // let a = ds.derive(&crate::DerivationPath::new("m/86'/0'/0'/0/1".to_string()).unwrap()).unwrap();
+
+
+        // let a = crate::Descriptor::new_bip86(&a, crate::KeychainKind::External, Network::Bitcoin);
+        // println!("{}", a.to_string_with_secret());
+
+        // let external_path = bip32::DerivationPath::from_str("m/86h/0h/0h/0/1").unwrap();
+        // let ds = descriptor!(tr(((mnemonic,None), external_path))).unwrap()
+        //     .into_wallet_descriptor(&Secp256k1::new(), bitcoin::Network::Bitcoin).unwrap();;
+        let d = crate::Descriptor::new_bip86(&a, crate::KeychainKind::External, Network::Bitcoin).to_string_with_secret();
+        println!("{}", d);
+
+        let mut a = Wallet::create_single(d).create_wallet_no_persist().unwrap();
+        println!("{}", a.peek_address(KeychainKind::External, 0));
+        println!("{}", a.peek_address(KeychainKind::External, 1));
+
+        println!("{:?}", a.next_unused_address(KeychainKind::External));
+
+        // let a = DescriptorSecretKey::from_string(private_key).unwrap();
+        // let derived_xprv = a.into_extended_key().unwrap();
+
+        // let d = bdk_wallet::miniscript::Descriptor::new_tr();
+        // let dp = DerivationPath::new("m/86'/0'/0'/0/1".to_string()).unwrap();
+        // let ds = ds.derive(&dp).unwrap();
+        // println!("{}",ds.as_string());
+        // let walllet = bdk_wallet::Wallet::create_single();
+
+
+        // println!("{:?}",ds.0.into_single_keys());
+
     }
 
     #[test]

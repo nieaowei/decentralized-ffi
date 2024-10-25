@@ -5,9 +5,9 @@ use bdk_wallet::bitcoin::{
     opcodes,
 };
 use bdk_wallet::bitcoin::script::Instruction;
-use bitcoin_ffi::Script;
-use crate::rune::rune_id::RuneId;
-use crate::rune::varint;
+use crate::bitcoin::Script;
+use crate::ordinal::rune::rune_id::RuneId;
+use crate::ordinal::rune::varint;
 
 #[derive(Copy, Clone, Debug)]
 pub(super) enum Tag {
@@ -33,7 +33,7 @@ pub(super) enum Tag {
     Nop = 127,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum RuneParseError {
     #[error("no OP_RETURN flag")]
     NoOpReturn,
@@ -52,9 +52,10 @@ pub enum RuneParseError {
 }
 
 
+#[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Rune {
     Edicts { edicts: Vec<Edict> },
-    Etching { rune_id: RuneId },
+    Etching { rune_id: Arc<RuneId> },
     Nothing,
 }
 
@@ -65,8 +66,9 @@ impl Rune {
 }
 
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Edict {
-    pub id: RuneId,
+    pub id: Arc<RuneId>,
     pub amount: u64,
     pub output: u32,
 }
@@ -138,6 +140,7 @@ fn integers(payload: &[u8]) -> Result<Vec<u128>, RuneParseError> {
     Ok(integers)
 }
 
+#[uniffi::export]
 pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseError> {
     let mut instructions = script.0.instructions();
     if instructions.next() != Some(Ok(Instruction::Op(opcodes::all::OP_RETURN))) {
@@ -187,12 +190,12 @@ pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseEr
                 };
 
                 let edict = Edict {
-                    id: next,
+                    id: Arc::new(next.clone()),
                     amount: chunk[2] as u64,
                     output: chunk[3].try_into().map_err(|err| RuneParseError::U128Tou32)?,
                 };
 
-                id = next;
+                id = next.clone();
                 edicts.push(edict)
             }
             break;
@@ -205,13 +208,13 @@ pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseEr
         fields.entry(tag).or_default().push_back(value);
     }
     if !edicts.is_empty() {
-        return Ok(Rune::Edicts{edicts});
+        return Ok(Rune::Edicts { edicts });
     }
 
     if let Some(mint) = Tag::Mint.take(&mut fields, |[block, tx]| {
-        RuneId::new(block.try_into().ok()?, tx.try_into().ok()?)
+        RuneId::new(block.try_into().ok()?, tx.try_into().ok()?).ok()
     }) {
-        return Ok(Rune::Etching{rune_id: mint});
+        return Ok(Rune::Etching { rune_id: Arc::new(mint) });
     }
 
     Ok(Rune::Nothing)

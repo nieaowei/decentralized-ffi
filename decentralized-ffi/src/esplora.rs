@@ -1,34 +1,34 @@
-use crate::bitcoin::{BlockHash, Transaction};
+use crate::bitcoin::{Amount, BlockHash, Script, Transaction};
 use crate::error::EsploraError;
 use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};
 
-use bitcoin_ffi::{Amount, Script};
-
-use bdk_esplora::esplora_client::{BlockingClient, Builder, OutputStatus as EsploraOutputStatus};
-use bdk_esplora::EsploraExt;
+use bdk_esplora::esplora_client::PrevOut as EsploraPrevOut;
 use bdk_esplora::esplora_client::Tx as EsploraTx;
+use bdk_esplora::esplora_client::TxStatus as EsploraTxStatus;
 use bdk_esplora::esplora_client::Vin as EsploraVin;
 use bdk_esplora::esplora_client::Vout as EsploraVout;
-use bdk_esplora::esplora_client::TxStatus as EsploraTxStatus;
-use bdk_esplora::esplora_client::PrevOut as EsploraPrevOut;
-
+use bdk_esplora::esplora_client::{BlockingClient, Builder, OutputStatus as EsploraOutputStatus};
+use bdk_esplora::EsploraExt;
 
 use bdk_wallet::bitcoin::{Transaction as BdkTransaction, Txid};
 use bdk_wallet::chain::spk_client::FullScanRequest as BdkFullScanRequest;
 use bdk_wallet::chain::spk_client::FullScanResult as BdkFullScanResult;
 use bdk_wallet::chain::spk_client::SyncRequest as BdkSyncRequest;
 use bdk_wallet::chain::spk_client::SyncResult as BdkSyncResult;
-use bdk_wallet::KeychainKind;
+use bdk_wallet::KeychainKind as BdkKeychainKind;
 use bdk_wallet::Update as BdkUpdate;
 
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+#[derive(uniffi::Object)]
 pub struct EsploraClient(BlockingClient);
 
+#[uniffi::export]
 impl EsploraClient {
+    #[uniffi::constructor]
     pub fn new(url: String) -> Self {
         let client = Builder::new(url.as_str()).build_blocking();
         Self(client)
@@ -41,14 +41,14 @@ impl EsploraClient {
         parallel_requests: u64,
     ) -> Result<Arc<Update>, EsploraError> {
         // using option and take is not ideal but the only way to take full ownership of the request
-        let request: BdkFullScanRequest<KeychainKind> = request
+        let request: BdkFullScanRequest<BdkKeychainKind> = request
             .0
             .lock()
             .unwrap()
             .take()
             .ok_or(EsploraError::RequestAlreadyConsumed)?;
 
-        let result: BdkFullScanResult<KeychainKind> =
+        let result: BdkFullScanResult<BdkKeychainKind> =
             self.0
                 .full_scan(request, stop_gap as usize, parallel_requests as usize)?;
 
@@ -67,7 +67,7 @@ impl EsploraClient {
         parallel_requests: u64,
     ) -> Result<Arc<Update>, EsploraError> {
         // using option and take is not ideal but the only way to take full ownership of the request
-        let request: BdkSyncRequest<(KeychainKind, u32)> = request
+        let request: BdkSyncRequest<(BdkKeychainKind, u32)> = request
             .0
             .lock()
             .unwrap()
@@ -93,23 +93,47 @@ impl EsploraClient {
     }
 
     pub fn get_tx(&self, txid: String) -> Result<Arc<Transaction>, EsploraError> {
-        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing { error_message: e.to_string() })?;
-        Ok(Arc::new(self.0.get_tx_no_opt(&txid).map_err(EsploraError::from)?.into()))
+        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing {
+            error_message: e.to_string(),
+        })?;
+        Ok(Arc::new(
+            self.0
+                .get_tx_no_opt(&txid)
+                .map_err(EsploraError::from)?
+                .into(),
+        ))
     }
 
     pub fn get_tx_info(&self, txid: String) -> Result<Tx, EsploraError> {
-        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing { error_message: e.to_string() })?;
-        Ok(self.0.get_tx_info(&txid).map_err(EsploraError::from)?.ok_or(EsploraError::TransactionNotFound)?.into())
+        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing {
+            error_message: e.to_string(),
+        })?;
+        Ok(self
+            .0
+            .get_tx_info(&txid)
+            .map_err(EsploraError::from)?
+            .ok_or(EsploraError::TransactionNotFound)?
+            .into())
     }
 
-    pub fn get_output_status(&self, txid: String, index: u64) -> Result<OutputStatus, EsploraError> {
-        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing { error_message: e.to_string() })?;
-        Ok(self.0.get_output_status(&txid, index).map_err(EsploraError::from)?.ok_or(EsploraError::TransactionNotFound)?.into())
+    pub fn get_output_status(
+        &self,
+        txid: String,
+        index: u64,
+    ) -> Result<OutputStatus, EsploraError> {
+        let txid = Txid::from_str(&txid).map_err(|e| EsploraError::Parsing {
+            error_message: e.to_string(),
+        })?;
+        Ok(self
+            .0
+            .get_output_status(&txid, index)
+            .map_err(EsploraError::from)?
+            .ok_or(EsploraError::TransactionNotFound)?
+            .into())
     }
 }
 
-
-#[derive(Debug, Clone)]
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OutputStatus {
     pub spent: bool,
     pub txid: Option<String>,
@@ -128,7 +152,7 @@ impl From<EsploraOutputStatus> for OutputStatus {
     }
 }
 
-
+#[derive(uniffi::Record)]
 pub struct Tx {
     pub txid: String,
     pub version: i32,
@@ -157,6 +181,7 @@ impl From<EsploraTx> for Tx {
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Vin {
     pub txid: String,
     pub vout: u32,
@@ -182,6 +207,7 @@ impl From<EsploraVin> for Vin {
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Vout {
     pub value: Arc<Amount>,
     pub scriptpubkey: Arc<Script>,
@@ -196,7 +222,7 @@ impl From<EsploraVout> for Vout {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TxStatus {
     pub confirmed: bool,
     pub block_height: Option<u32>,
@@ -215,25 +241,28 @@ impl From<EsploraTxStatus> for TxStatus {
     }
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrevOut {
     pub value: Arc<Amount>,
     pub scriptpubkey: Arc<Script>,
 }
 impl From<EsploraPrevOut> for PrevOut {
     fn from(value: EsploraPrevOut) -> Self {
-        Self { value: Arc::new(Amount::from_sat(value.value)), scriptpubkey: Arc::new(value.scriptpubkey.into()) }
+        Self {
+            value: Arc::new(Amount::from_sat(value.value)),
+            scriptpubkey: Arc::new(value.scriptpubkey.into()),
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use bdk_wallet::serde_json;
     use std::collections::{BTreeSet, HashSet};
     use std::ops::Deref;
     use std::str::FromStr;
-    use bdk_wallet::serde_json;
-    use serde::Serialize;
-    use super::*;
-
+    use bdk_wallet::serde::Serialize;
     //
     // fn find_childs(c: &EsploraClient, txid: String) -> Vec<Arc<Transaction>> {
     //     let txinf = c.get_tx(txid.clone()).unwrap();
@@ -254,8 +283,7 @@ mod test {
     //
     // }
 
-    #[derive(Serialize)]
-    #[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Clone)]
+    #[derive(Serialize, Eq, Hash, PartialEq, Ord, PartialOrd, Clone)]
     struct CpfpTx {
         txid: String,
         fee: u64,
@@ -265,7 +293,11 @@ mod test {
     }
 
     impl CpfpTx {
-        fn find_chain(c: &EsploraClient, start_txid: String, visited: &mut BTreeSet<CpfpTx>) -> CpfpTx {
+        fn find_chain(
+            c: &EsploraClient,
+            start_txid: String,
+            visited: &mut BTreeSet<CpfpTx>,
+        ) -> CpfpTx {
             if let Some(v) = visited.iter().find(|e| e.txid == start_txid).cloned() {
                 println!("989\n");
                 return v;
@@ -274,7 +306,7 @@ mod test {
             let start_tx = c.get_tx_info(start_txid.clone()).unwrap();
             let mut chain_start = CpfpTx {
                 txid: start_txid.clone(),
-                fee: start_tx.fee,
+                fee: start_tx.fee.0.to_sat(),
                 weight: start_tx.weight,
                 parents: Default::default(),
                 childs: Default::default(),
@@ -286,10 +318,14 @@ mod test {
                     continue;
                 }
 
-                chain_start.parents.insert(Self::find_chain(c, tx_info.txid.clone(), visited));
+                chain_start
+                    .parents
+                    .insert(Self::find_chain(c, tx_info.txid.clone(), visited));
             }
             for txout in start_tx.vout.iter().enumerate() {
-                let outstatus = c.get_output_status(start_txid.clone(), txout.0 as u64).unwrap();
+                let outstatus = c
+                    .get_output_status(start_txid.clone(), txout.0 as u64)
+                    .unwrap();
                 if !outstatus.spent {
                     continue;
                 }
@@ -297,7 +333,9 @@ mod test {
                 if tx_info.status.confirmed {
                     continue;
                 }
-                chain_start.childs.insert(Self::find_chain(c, tx_info.txid.clone(), visited));
+                chain_start
+                    .childs
+                    .insert(Self::find_chain(c, tx_info.txid.clone(), visited));
             }
             visited.insert(chain_start.clone());
             chain_start
@@ -308,7 +346,11 @@ mod test {
         let c = EsploraClient::new("https://mempool.space/testnet4/api".to_string());
         // let txid = Txid::from_str("96ae181640193fcb667553224560c1eaa9a8e524d94e9fd37fb65c97b9034178").unwrap();
         // let resp = c.get_tx_info("b32c6daa011090edbce186a25c3fd80fd3ee03974fa199206031ebed28cf5198".to_string()).unwrap();
-        let childs = CpfpTx::find_chain(&c, "a7912a1a7f4ccf1cd248b17d403e5acd8a342671c02ac88c11e6509afe2bb8c3".to_string(), &mut BTreeSet::new());
+        let childs = CpfpTx::find_chain(
+            &c,
+            "a7912a1a7f4ccf1cd248b17d403e5acd8a342671c02ac88c11e6509afe2bb8c3".to_string(),
+            &mut BTreeSet::new(),
+        );
         println!("{}", serde_json::to_string(&childs).unwrap());
     }
 }

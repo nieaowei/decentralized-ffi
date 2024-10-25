@@ -1,9 +1,6 @@
-use bitcoin_ffi::OutPoint;
-
-use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::address::ParseError;
 use bdk_electrum::electrum_client::Error as BdkElectrumError;
 use bdk_esplora::esplora_client::{Error as BdkEsploraError, Error};
-use bdk_wallet::bitcoin::address::FromScriptError as BdkFromScriptError;
+use bdk_wallet::bitcoin::address::{FromScriptError as BdkFromScriptError, ParseError};
 use bdk_wallet::bitcoin::address::ParseError as BdkParseError;
 use bdk_wallet::bitcoin::bip32::Error as BdkBip32Error;
 use bdk_wallet::bitcoin::consensus::encode::Error as BdkEncodeError;
@@ -21,16 +18,17 @@ use bdk_wallet::keys::bip39::Error as BdkBip39Error;
 use bdk_wallet::miniscript::descriptor::DescriptorKeyParseError as BdkDescriptorKeyParseError;
 use bdk_wallet::signer::SignerError as BdkSignerError;
 use bdk_wallet::tx_builder::AddUtxoError;
-use bdk_wallet::LoadWithPersistError as BdkLoadWithPersistError;
+use bdk_wallet::{AddForeignUtxoError, LoadWithPersistError as BdkLoadWithPersistError};
 use bdk_wallet::{chain, CreateWithPersistError as BdkCreateWithPersistError};
+use bdk_wallet::bitcoin::amount::ParseAmountError as BitcoinParseAmountError;
 
 use std::convert::TryInto;
-
+use crate::bitcoin::OutPoint;
 // ------------------------------------------------------------------------
 // error definitions
 // ------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum AddressParseError {
     #[error("base58 address encoding error")]
     Base58,
@@ -64,7 +62,7 @@ pub enum AddressParseError {
     OtherAddressParseErr,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum Bip32Error {
     #[error("cannot derive from a hardened key")]
     CannotDeriveFromHardenedKey,
@@ -100,7 +98,7 @@ pub enum Bip32Error {
     UnknownError { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum Bip39Error {
     #[error("the word count {word_count} is not supported")]
     BadWordCount { word_count: u64 },
@@ -118,7 +116,7 @@ pub enum Bip39Error {
     AmbiguousLanguages { languages: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CalculateFeeError {
     #[error("missing transaction output: {out_points:?}")]
     MissingTxOut { out_points: Vec<OutPoint> },
@@ -127,13 +125,13 @@ pub enum CalculateFeeError {
     NegativeFee { amount: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CannotConnectError {
     #[error("cannot include height: {height}")]
     Include { height: u32 },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CreateTxError {
     #[error("descriptor error: {error_message}")]
     Descriptor { error_message: String },
@@ -156,8 +154,8 @@ pub enum CreateTxError {
     #[error("transaction requires rbf sequence number")]
     RbfSequence,
 
-    #[error("rbf sequence: {rbf}, csv sequence: {csv}")]
-    RbfSequenceCsv { rbf: String, csv: String },
+    #[error("rbf sequence: {sequence}, csv sequence: {csv}")]
+    RbfSequenceCsv { sequence: String, csv: String },
 
     #[error("fee too low: required {required}")]
     FeeTooLow { required: String },
@@ -199,7 +197,7 @@ pub enum CreateTxError {
     MiniscriptPsbt { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CreateWithPersistError {
     #[error("sqlite persistence error: {error_message}")]
     Persist { error_message: String },
@@ -211,7 +209,7 @@ pub enum CreateWithPersistError {
     Descriptor { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum DescriptorError {
     #[error("invalid hd key path")]
     InvalidHdKeyPath,
@@ -253,7 +251,7 @@ pub enum DescriptorError {
     ExternalAndInternalAreTheSame,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum DescriptorKeyError {
     #[error("error parsing descriptor key: {error_message}")]
     Parse { error_message: String },
@@ -265,7 +263,7 @@ pub enum DescriptorKeyError {
     Bip32 { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ElectrumError {
     #[error("{error_message}")]
     IOError { error_message: String },
@@ -306,7 +304,8 @@ pub enum ElectrumError {
     #[error("{error_message}")]
     SharedIOError { error_message: String },
 
-    #[error("couldn't take a lock on the reader mutex. This means that there's already another reader thread is running")]
+    #[error("couldn't take a lock on the reader mutex. This means that there's already another reader thread is running"
+    )]
     CouldntLockReader,
 
     #[error("broken IPC communication channel: the other thread probably has exited")]
@@ -319,7 +318,7 @@ pub enum ElectrumError {
     RequestAlreadyConsumed,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum EsploraError {
     #[error("minreq error: {error_message}")]
     Minreq { error_message: String },
@@ -361,7 +360,7 @@ pub enum EsploraError {
     RequestAlreadyConsumed,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ExtractTxError {
     #[error("an absurdly high fee rate of {fee_rate} sat/vbyte")]
     AbsurdFeeRate { fee_rate: u64 },
@@ -378,7 +377,7 @@ pub enum ExtractTxError {
     OtherExtractTxErr,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum FromScriptError {
     #[error("script is not a p2pkh, p2sh or witness program")]
     UnrecognizedScript,
@@ -394,13 +393,13 @@ pub enum FromScriptError {
     OtherFromScriptErr,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum RequestBuilderError {
     #[error("the request has already been consumed")]
     RequestAlreadyConsumed,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LoadWithPersistError {
     #[error("sqlite persistence error: {error_message}")]
     Persist { error_message: String },
@@ -412,13 +411,13 @@ pub enum LoadWithPersistError {
     CouldNotLoad,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum PersistenceError {
     #[error("writing to persistence error: {error_message}")]
     Write { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum PsbtError {
     #[error("invalid magic")]
     InvalidMagic,
@@ -522,7 +521,7 @@ pub enum PsbtError {
     OtherPsbtErr,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum PsbtParseError {
     #[error("error in internal psbt data structure: {error_message}")]
     PsbtEncoding { error_message: String },
@@ -531,7 +530,7 @@ pub enum PsbtParseError {
     Base64Encoding { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum SignerError {
     #[error("missing key for signing")]
     MissingKey,
@@ -572,7 +571,8 @@ pub enum SignerError {
     #[error("error while computing the hash to sign a taproot input: {error_message}")]
     SighashTaproot { error_message: String },
 
-    #[error("Error while computing the hash, out of bounds access on the transaction inputs: {error_message}")]
+    #[error("Error while computing the hash, out of bounds access on the transaction inputs: {error_message}"
+    )]
     TxInputsIndexError { error_message: String },
 
     #[error("miniscript psbt error: {error_message}")]
@@ -585,13 +585,13 @@ pub enum SignerError {
     Psbt { error_message: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum SqliteError {
     #[error("sqlite error: {rusqlite_error}")]
     Sqlite { rusqlite_error: String },
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum TransactionError {
     #[error("io error")]
     Io,
@@ -616,15 +616,76 @@ pub enum TransactionError {
     OtherTransactionErr,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum TxidParseError {
     #[error("invalid txid: {txid}")]
     InvalidTxid { txid: String },
 }
 
+
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum FeeRateError {
+    #[error("arithmetic overflow on feerate")]
+    ArithmeticOverflow,
+}
+
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum ParseAmountError {
+    #[error("amount out of range")]
+    OutOfRange,
+
+    #[error("amount has a too high precision")]
+    TooPrecise,
+
+    #[error("the input has too few digits")]
+    MissingDigits,
+
+    #[error("the input is too large")]
+    InputTooLarge,
+
+    #[error("invalid character: {error_message}")]
+    InvalidCharacter { error_message: String },
+
+    // Has to handle non-exhaustive
+    #[error("unknown parse amount error")]
+    OtherParseAmountErr,
+}
+//
+// #[derive(Debug, thiserror::Error, uniffi::Error)]
+// pub enum ExtractTxError {
+//     AbsurdFeeRate {
+//         fee_rate: FeeRate,
+//         tx: Transaction,
+//     },
+//     MissingInputValue {
+//         tx: Transaction,
+//     },
+//     SendingTooMuch {
+//         psbt: Psbt,
+//     },
+// }
+
+
 // ------------------------------------------------------------------------
 // error conversions
 // ------------------------------------------------------------------------
+
+
+impl From<BitcoinParseAmountError> for ParseAmountError {
+    fn from(error: BitcoinParseAmountError) -> Self {
+        match error {
+            BitcoinParseAmountError::OutOfRange(_) => ParseAmountError::OutOfRange,
+            BitcoinParseAmountError::TooPrecise(_) => ParseAmountError::TooPrecise,
+            BitcoinParseAmountError::MissingDigits(_) => ParseAmountError::MissingDigits,
+            BitcoinParseAmountError::InputTooLarge(_) => ParseAmountError::InputTooLarge,
+            BitcoinParseAmountError::InvalidCharacter(c) => ParseAmountError::InvalidCharacter {
+                error_message: c.to_string(),
+            },
+            _ => ParseAmountError::OtherParseAmountErr,
+        }
+    }
+}
+
 
 impl From<BdkElectrumError> for ElectrumError {
     fn from(error: BdkElectrumError) -> Self {
@@ -752,7 +813,7 @@ impl From<BdkCalculateFeeError> for CalculateFeeError {
     fn from(error: BdkCalculateFeeError) -> Self {
         match error {
             BdkCalculateFeeError::MissingTxOut(out_points) => {
-                CalculateFeeError::MissingTxOut { out_points }
+                CalculateFeeError::MissingTxOut { out_points: out_points.into_iter().map(Into::into).collect() }
             }
             BdkCalculateFeeError::NegativeFee(signed_amount) => CalculateFeeError::NegativeFee {
                 amount: signed_amount.to_string(),
@@ -792,9 +853,9 @@ impl From<BdkCreateTxError> for CreateTxError {
                 requested: requested.to_string(),
                 required: required.to_string(),
             },
-            BdkCreateTxError::RbfSequence => CreateTxError::RbfSequence,
-            BdkCreateTxError::RbfSequenceCsv { rbf, csv } => CreateTxError::RbfSequenceCsv {
-                rbf: rbf.to_string(),
+            // BdkCreateTxError::RbfSequence => CreateTxError::RbfSequence,
+            BdkCreateTxError::RbfSequenceCsv { sequence, csv } => CreateTxError::RbfSequenceCsv {
+                sequence: sequence.to_string(),
                 csv: csv.to_string(),
             },
             BdkCreateTxError::FeeTooLow { required } => CreateTxError::FeeTooLow {
@@ -852,6 +913,22 @@ impl From<AddUtxoError> for CreateTxError {
         match error {
             AddUtxoError::UnknownUtxo(outpoint) => CreateTxError::UnknownUtxo {
                 outpoint: outpoint.to_string(),
+            },
+        }
+    }
+}
+
+impl From<AddForeignUtxoError> for CreateTxError {
+    fn from(error: AddForeignUtxoError) -> Self {
+        match error {
+            AddForeignUtxoError::InvalidTxid { foreign_utxo, .. } => CreateTxError::UnknownUtxo {
+                outpoint: foreign_utxo.to_string(),
+            },
+            AddForeignUtxoError::InvalidOutpoint(outpoint) => CreateTxError::UnknownUtxo {
+                outpoint: outpoint.to_string(),
+            },
+            AddForeignUtxoError::MissingUtxo => CreateTxError::UnknownUtxo {
+                outpoint: "MissingUtxo".to_string(),
             },
         }
     }
@@ -1612,7 +1689,7 @@ mod test {
                     std::io::ErrorKind::Other,
                     "unable to persist the new address",
                 )
-                .into(),
+                    .into(),
                 "writing to persistence error: unable to persist the new address",
             ),
             (

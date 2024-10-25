@@ -1,6 +1,6 @@
 use crate::bitcoin::Transaction;
-use crate::error::{ElectrumError};
-use crate::types::{Update};
+use crate::error::ElectrumError;
+use crate::types::Update;
 use crate::types::{FullScanRequest, SyncRequest};
 
 use bdk_core::spk_client::FullScanRequest as BdkFullScanRequest;
@@ -8,7 +8,7 @@ use bdk_core::spk_client::FullScanResult as BdkFullScanResult;
 use bdk_core::spk_client::SyncRequest as BdkSyncRequest;
 use bdk_core::spk_client::SyncResult as BdkSyncResult;
 use bdk_electrum::BdkElectrumClient as BdkBdkElectrumClient;
-use bdk_wallet::bitcoin::Transaction as BdkTransaction;
+use bdk_wallet::bitcoin::{Transaction as BdkTransaction, Txid};
 use bdk_wallet::KeychainKind;
 use bdk_wallet::Update as BdkUpdate;
 
@@ -16,14 +16,16 @@ use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
-use bdk_bitcoind_rpc::bitcoincore_rpc::bitcoin::Txid;
 
 // NOTE: We are keeping our naming convention where the alias of the inner type is the Rust type
 //       prefixed with `Bdk`. In this case the inner type is `BdkElectrumClient`, so the alias is
 //       funnily enough named `BdkBdkElectrumClient`.
+#[derive(uniffi::Object)]
 pub struct ElectrumClient(BdkBdkElectrumClient<bdk_electrum::electrum_client::Client>);
 
+#[uniffi::export]
 impl ElectrumClient {
+    #[uniffi::constructor]
     pub fn new(url: String) -> Result<Self, ElectrumError> {
         let inner_client: bdk_electrum::electrum_client::Client =
             bdk_electrum::electrum_client::Client::new(url.as_str())?;
@@ -98,8 +100,15 @@ impl ElectrumClient {
     }
 
     pub fn get_tx(&self, txid: String) -> Result<Arc<Transaction>, ElectrumError> {
-        let txid = Txid::from_str(&txid).map_err(|e| ElectrumError::Hex { error_message: e.to_string() })?;
-        let tx = self.0.fetch_tx(txid).map_err(ElectrumError::from)?.deref().clone();
+        let txid = Txid::from_str(&txid).map_err(|e| ElectrumError::Hex {
+            error_message: e.to_string(),
+        })?;
+        let tx = self
+            .0
+            .fetch_tx(txid)
+            .map_err(ElectrumError::from)?
+            .deref()
+            .clone();
         Ok(Arc::new(tx.into()))
     }
     //
