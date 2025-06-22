@@ -85,6 +85,10 @@ impl Address {
             false
         }
     }
+
+    pub fn minimal_non_dust(&self) -> Amount {
+        self.0.script_pubkey().minimal_non_dust().into()
+    }
 }
 
 
