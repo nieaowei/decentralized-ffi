@@ -111,6 +111,8 @@ use crate::ordinal::SnipeRuneUtxoPair;
 use crate::ordinal::SnipePsbtPair;
 use crate::ordinal::SnipeInscriptionPair;
 use crate::ordinal::snipe::SnipeError;
+use crate::ordinal::inscription::mint;
+use crate::ordinal::inscription::MintError;
 
 // uniffi::include_scaffolding!("bdk");
 

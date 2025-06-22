@@ -5,7 +5,7 @@ use bdk_electrum::electrum_client::ElectrumApi;
 use bdk_wallet::bitcoin::{Address, Txid};
 use bdk_wallet::serde_json;
 use serde::Serialize;
-use bdkffi::esplora::EsploraClient;
+use deffi::esplora::EsploraClient;
 
 #[derive(Serialize)]
 #[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Clone)]
@@ -24,7 +24,7 @@ impl CpfpTx {
         let start_tx = c.get_tx_info(start_txid.clone()).unwrap();
         let mut chain_start = CpfpTx {
             txid: start_txid.clone(),
-            fee: start_tx.fee,
+            fee: start_tx.fee.to_sat(),
             weight: start_tx.weight,
             parents: Default::default(),
             childs: Default::default(),

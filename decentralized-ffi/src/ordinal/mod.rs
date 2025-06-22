@@ -14,6 +14,7 @@ pub(crate) mod snipe;
 mod dummy_transaction;
 
 pub(crate) mod rune;
+pub(crate) mod inscription;
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TxInAndTxOut {
