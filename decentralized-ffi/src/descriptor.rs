@@ -4,6 +4,7 @@ use crate::keys::DescriptorSecretKey;
 
 use bdk_wallet::bitcoin::bip32::Fingerprint;
 use bdk_wallet::bitcoin::key::Secp256k1;
+use bdk_wallet::bitcoin::Network;
 use bdk_wallet::descriptor::{ExtendedDescriptor, IntoWalletDescriptor};
 use bdk_wallet::keys::{DescriptorPublicKey as BdkDescriptorPublicKey, IntoDescriptorKey};
 use bdk_wallet::keys::{DescriptorSecretKey as BdkDescriptorSecretKey, KeyMap};
@@ -12,12 +13,11 @@ use bdk_wallet::template::{
     DescriptorTemplate,
 };
 
+use bdk_wallet::miniscript;
+use bdk_wallet::KeychainKind;
 use std::fmt::Display;
 use std::str::FromStr;
 use std::string::ToString;
-use bdk_wallet::miniscript;
-use crate::testnet4::Network;
-use crate::wallet::KeychainKind;
 
 #[derive(uniffi::Object, Debug, Clone, PartialEq, Eq)]
 #[uniffi::export(Debug, Display, Eq)]
@@ -31,7 +31,7 @@ impl Descriptor {
     #[uniffi::constructor]
     pub(crate) fn new(descriptor: String, network: Network) -> Result<Self, DescriptorError> {
         let secp = Secp256k1::new();
-        let (extended_descriptor, key_map) = descriptor.into_wallet_descriptor(&secp, network.to_bitcoin_network())?;
+        let (extended_descriptor, key_map) = descriptor.into_wallet_descriptor(&secp, network)?;
         Ok(Self {
             extended_descriptor,
             key_map,
@@ -57,13 +57,14 @@ impl Descriptor {
                 key_map.insert(dp, derivable_key.clone());
                 Self {
                     extended_descriptor: d,
-                    key_map: key_map,
+                    key_map,
                 }
             }
             BdkDescriptorSecretKey::XPrv(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
-                let (extended_descriptor, key_map, _) =
-                    Bip44(derivable_key, keychain_kind.into()).build(network.to_bitcoin_network()).unwrap();
+                let (extended_descriptor, key_map, _) = Bip44(derivable_key, keychain_kind)
+                    .build(network)
+                    .unwrap();
                 Self {
                     extended_descriptor,
                     key_map,
@@ -92,8 +93,8 @@ impl Descriptor {
             BdkDescriptorPublicKey::XPub(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
                 let (extended_descriptor, key_map, _) =
-                    Bip44Public(derivable_key, fingerprint, keychain_kind.into())
-                        .build(network.to_bitcoin_network())
+                    Bip44Public(derivable_key, fingerprint, keychain_kind)
+                        .build(network)
                         .unwrap();
 
                 Self {
@@ -126,13 +127,14 @@ impl Descriptor {
                 key_map.insert(dp, derivable_key.clone());
                 Self {
                     extended_descriptor: d,
-                    key_map: key_map,
+                    key_map,
                 }
             }
             BdkDescriptorSecretKey::XPrv(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
-                let (extended_descriptor, key_map, _) =
-                    Bip49(derivable_key, keychain_kind.into()).build(network.to_bitcoin_network()).unwrap();
+                let (extended_descriptor, key_map, _) = Bip49(derivable_key, keychain_kind)
+                    .build(network)
+                    .unwrap();
                 Self {
                     extended_descriptor,
                     key_map,
@@ -160,8 +162,8 @@ impl Descriptor {
             BdkDescriptorPublicKey::XPub(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
                 let (extended_descriptor, key_map, _) =
-                    Bip49Public(derivable_key, fingerprint, keychain_kind.into())
-                        .build(network.to_bitcoin_network())
+                    Bip49Public(derivable_key, fingerprint, keychain_kind)
+                        .build(network)
                         .unwrap();
 
                 Self {
@@ -194,13 +196,14 @@ impl Descriptor {
                 key_map.insert(dp, derivable_key.clone());
                 Self {
                     extended_descriptor: d,
-                    key_map: key_map,
+                    key_map,
                 }
             }
             BdkDescriptorSecretKey::XPrv(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
-                let (extended_descriptor, key_map, _) =
-                    Bip84(derivable_key, keychain_kind.into()).build(network.to_bitcoin_network()).unwrap();
+                let (extended_descriptor, key_map, _) = Bip84(derivable_key, keychain_kind)
+                    .build(network)
+                    .unwrap();
                 Self {
                     extended_descriptor,
                     key_map,
@@ -229,8 +232,8 @@ impl Descriptor {
             BdkDescriptorPublicKey::XPub(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
                 let (extended_descriptor, key_map, _) =
-                    Bip84Public(derivable_key, fingerprint, keychain_kind.into())
-                        .build(network.to_bitcoin_network())
+                    Bip84Public(derivable_key, fingerprint, keychain_kind)
+                        .build(network)
                         .unwrap();
 
                 Self {
@@ -263,14 +266,15 @@ impl Descriptor {
                 key_map.insert(dp, derivable_key.clone());
                 Self {
                     extended_descriptor: d,
-                    key_map: key_map,
+                    key_map,
                 }
                 // unreachable!()
             }
             BdkDescriptorSecretKey::XPrv(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
-                let (extended_descriptor, key_map, _) =
-                    Bip86(derivable_key, keychain_kind.into()).build(network.to_bitcoin_network()).unwrap();
+                let (extended_descriptor, key_map, _) = Bip86(derivable_key, keychain_kind)
+                    .build(network)
+                    .unwrap();
                 Self {
                     extended_descriptor,
                     key_map,
@@ -299,8 +303,8 @@ impl Descriptor {
             BdkDescriptorPublicKey::XPub(descriptor_x_key) => {
                 let derivable_key = descriptor_x_key.xkey;
                 let (extended_descriptor, key_map, _) =
-                    Bip86Public(derivable_key, fingerprint, keychain_kind.into())
-                        .build(network.to_bitcoin_network())
+                    Bip86Public(derivable_key, fingerprint, keychain_kind)
+                        .build(network)
                         .unwrap();
 
                 Self {
@@ -333,38 +337,38 @@ mod test {
     use assert_matches::assert_matches;
 
     fn get_descriptor_secret_key() -> DescriptorSecretKey {
-        let mnemonic = Mnemonic::from_string("chaos fabric time speed sponsor all flat solution wisdom trophy crack object robot pave observe combine where aware bench orient secret primary cable detect").unwrap();
+        let mnemonic = Mnemonic::from_string("chaos fabric time speed sponsor all flat solution wisdom trophy crack object robot pave observe combine where aware bench orient secret primary cable detect".to_string()).unwrap();
         DescriptorSecretKey::new(Network::Testnet, &mnemonic, None)
     }
 
     #[test]
     fn test_descriptor_templates() {
         let master: DescriptorSecretKey = get_descriptor_secret_key();
-        println!("Master: {:?}", master.as_string());
+        println!("Master: {:?}", master.to_string());
         // tprv8ZgxMBicQKsPdWuqM1t1CDRvQtQuBPyfL6GbhQwtxDKgUAVPbxmj71pRA8raTqLrec5LyTs5TqCxdABcZr77bt2KyWA5bizJHnC4g4ysm4h
         let handmade_public_44 = master
             .derive(&DerivationPath::new("m/44h/1h/0h".to_string()).unwrap())
             .unwrap()
             .as_public();
-        println!("Public 44: {}", handmade_public_44.as_string());
+        println!("Public 44: {}", handmade_public_44);
         // Public 44: [d1d04177/44'/1'/0']tpubDCoPjomfTqh1e7o1WgGpQtARWtkueXQAepTeNpWiitS3Sdv8RKJ1yvTrGHcwjDXp2SKyMrTEca4LoN7gEUiGCWboyWe2rz99Kf4jK4m2Zmx/*
         let handmade_public_49 = master
             .derive(&DerivationPath::new("m/49h/1h/0h".to_string()).unwrap())
             .unwrap()
             .as_public();
-        println!("Public 49: {}", handmade_public_49.as_string());
+        println!("Public 49: {}", handmade_public_49);
         // Public 49: [d1d04177/49'/1'/0']tpubDC65ZRvk1NDddHrVAUAZrUPJ772QXzooNYmPywYF9tMyNLYKf5wpKE7ZJvK9kvfG3FV7rCsHBNXy1LVKW95jrmC7c7z4hq7a27aD2sRrAhR/*
         let handmade_public_84 = master
             .derive(&DerivationPath::new("m/84h/1h/0h".to_string()).unwrap())
             .unwrap()
             .as_public();
-        println!("Public 84: {}", handmade_public_84.as_string());
+        println!("Public 84: {}", handmade_public_84);
         // Public 84: [d1d04177/84'/1'/0']tpubDDNxbq17egjFk2edjv8oLnzxk52zny9aAYNv9CMqTzA4mQDiQq818sEkNe9Gzmd4QU8558zftqbfoVBDQorG3E4Wq26tB2JeE4KUoahLkx6/*
         let handmade_public_86 = master
             .derive(&DerivationPath::new("m/86h/1h/0h".to_string()).unwrap())
             .unwrap()
             .as_public();
-        println!("Public 86: {}", handmade_public_86.as_string());
+        println!("Public 86: {}", handmade_public_86);
         // Public 86: [d1d04177/86'/1'/0']tpubDCJzjbcGbdEfXMWaL6QmgVmuSfXkrue7m2YNoacWwyc7a2XjXaKojRqNEbo41CFL3PyYmKdhwg2fkGpLX4SQCbQjCGxAkWHJTw9WEeenrJb/*
         let template_private_44 =
             Descriptor::new_bip44(&master, KeychainKind::External, Network::Testnet);

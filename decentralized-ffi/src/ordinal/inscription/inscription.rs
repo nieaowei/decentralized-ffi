@@ -134,7 +134,7 @@ impl Inscription {
         let body =
             fs::read(path).with_context(|| format!("io error reading {}", path.display()))?;
 
-        let (content_type, compression_mode) = Media::content_type_for_path(path, &vec![])?; // todo
+        let (content_type, compression_mode) = Media::content_type_for_path(path, &[])?; // todo
 
         let (body, content_encoding) = if compress {
             let mut compressed = Vec::new();

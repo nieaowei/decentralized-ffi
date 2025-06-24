@@ -24,8 +24,14 @@ impl FromStr for RuneId {
         let (height, index) = s.split_once(':').ok_or(ParseRuneIdError::Separator)?;
 
         Ok(Self {
-            block: height.parse::<u64>().map_err(|e| ParseRuneIdError::Block { error_message: e.to_string() })?,
-            tx: index.parse::<u32>().map_err(|e| ParseRuneIdError::Transaction { error_message: e.to_string() })?,
+            block: height.parse::<u64>().map_err(|e| ParseRuneIdError::Block {
+                error_message: e.to_string(),
+            })?,
+            tx: index
+                .parse::<u32>()
+                .map_err(|e| ParseRuneIdError::Transaction {
+                    error_message: e.to_string(),
+                })?,
         })
     }
 }
@@ -39,7 +45,7 @@ pub enum ParseRuneIdError {
     #[error("invalid tx number:{error_message}")]
     Transaction { error_message: String },
     #[error("invalid tx runeid")]
-    InvalidRuneId
+    InvalidRuneId,
 }
 
 #[uniffi::export]
@@ -49,7 +55,7 @@ impl RuneId {
         let id = RuneId { block, tx };
 
         if id.block == 0 && id.tx > 0 {
-            return Err(ParseRuneIdError::InvalidRuneId)
+            return Err(ParseRuneIdError::InvalidRuneId);
         }
 
         Ok(id)
@@ -57,7 +63,7 @@ impl RuneId {
 
     #[uniffi::constructor]
     pub fn from_string(s: &str) -> Result<Self, ParseRuneIdError> {
-        Ok(s.parse()?)
+        s.parse()
     }
 
     pub fn block(&self) -> u64 {
@@ -69,9 +75,7 @@ impl RuneId {
     }
 }
 
-
 impl RuneId {
-
     pub fn delta(self, next: RuneId) -> Option<(u128, u128)> {
         let block = next.block.checked_sub(self.block)?;
 
@@ -95,4 +99,3 @@ impl RuneId {
         })
     }
 }
-

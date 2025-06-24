@@ -1,7 +1,6 @@
-use bdk_core::bitcoin::Weight;
 use bdk_wallet::bitcoin::{
-    absolute::LockTime,
-    Amount, key::constants::SCHNORR_SIGNATURE_SIZE, OutPoint, ScriptBuf, Sequence, Transaction, transaction::Version, TxIn, TxOut, Witness,
+    absolute::LockTime, key::constants::SCHNORR_SIGNATURE_SIZE, transaction::Version, Amount,
+    OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Weight, Witness,
 };
 pub(crate) struct DummyTransaction(pub Transaction);
 
@@ -40,7 +39,9 @@ impl DummyTransaction {
                 Witness::from_slice(&[&[0; SCHNORR_SIGNATURE_SIZE]])
             } else if script_pubkey.is_p2wpkh() {
                 Witness::from_slice(&[vec![0; 105]]) // 第一个值最大73 这里已知在xx下
-            } else { Witness::new() }
+            } else {
+                Witness::new()
+            }
         });
         self.0.input.push(TxIn {
             previous_output: OutPoint::null(),

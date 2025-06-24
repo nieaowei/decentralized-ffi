@@ -88,7 +88,7 @@ where
 
 #[uniffi::export]
 pub async fn mint(
-    network: testnet4::Network,
+    network: Network,
     utxos: Vec<LocalOutput>,
     file: NamedFile,
     pay_address: &str,
@@ -96,7 +96,6 @@ pub async fn mint(
     fee_rate: u64,
     postage: Option<u64>,
 ) -> Result<Output, MintError> {
-    let network = network.to_bitcoin_network();
     let destination = Address::from_str(to_addr)?.require_network(network)?;
 
     // 1. Legacy (P2PKH) 以 1 开始的地址限制输出为 546 sats
@@ -119,7 +118,7 @@ pub async fn mint(
         }
     };
 
-    Ok(Inscribe {
+    Inscribe {
         pay_address: Address::from_str(pay_address)?.require_network(network)?,
         destination: Address::from_str(to_addr)?.require_network(network)?,
         fee_rate: FeeRate::from_sat_per_vb_unchecked(fee_rate),
@@ -145,7 +144,7 @@ pub async fn mint(
         network, utxos,
     )
     .await
-    .map_err(|e| MintError::AnyError(e.to_string()))?)
+    .map_err(|e| MintError::AnyError(e.to_string()))
 }
 
 pub(crate) struct Inscribe {
@@ -360,7 +359,7 @@ pub struct InscriptionInfo {
     pub location: SatPoint,
 }
 
-#[derive(uniffi::Record, Debug)]
+#[derive(uniffi::Record)]
 pub struct Output {
     pub commit_psbt_tx: Arc<crate::Psbt>,
 
@@ -643,7 +642,7 @@ impl Batch {
             &reveal_script,
         );
 
-        let mut psbt_tx = CommitPsbtBuilder::new(
+        let psbt_tx = CommitPsbtBuilder::new(
             pay_address.clone(),
             utxos,
             mint_addr.clone(),
@@ -719,7 +718,7 @@ impl Batch {
         );
 
         witness.push(reveal_script);
-        witness.push(&control_block.serialize());
+        witness.push(control_block.serialize());
 
         let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
@@ -797,7 +796,7 @@ impl Batch {
                             .to_vec(),
                     );
                     txin.witness.push(script);
-                    txin.witness.push(&control_block.serialize());
+                    txin.witness.push(control_block.serialize());
                 } else {
                     txin.witness = Witness::from_slice(&[&[0; SCHNORR_SIGNATURE_SIZE]]);
                 }
@@ -937,7 +936,7 @@ impl CommitPsbtBuilder {
         });
 
         // 其他费用
-        let mut to_addrs = vec![(self.mint_address, self.reveal_fee)];
+        let  to_addrs = vec![(self.mint_address, self.reveal_fee)];
 
         for (addr, amount) in to_addrs {
             transaction.output.push(TxOut {

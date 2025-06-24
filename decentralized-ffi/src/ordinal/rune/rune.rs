@@ -1,13 +1,11 @@
-use std::collections::{HashMap, VecDeque};
-use std::convert::TryInto;
-use std::sync::Arc;
-use bdk_wallet::bitcoin::{
-    opcodes,
-};
-use bdk_wallet::bitcoin::script::Instruction;
 use crate::bitcoin::Script;
 use crate::ordinal::rune::rune_id::RuneId;
 use crate::ordinal::rune::varint;
+use bdk_wallet::bitcoin::opcodes;
+use bdk_wallet::bitcoin::script::Instruction;
+use std::collections::{HashMap, VecDeque};
+use std::convert::TryInto;
+use std::sync::Arc;
 
 #[derive(Copy, Clone, Debug)]
 pub(super) enum Tag {
@@ -51,7 +49,6 @@ pub enum RuneParseError {
     U128Tou32,
 }
 
-
 #[derive(uniffi::Enum, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Rune {
     Edicts { edicts: Vec<Edict> },
@@ -65,14 +62,12 @@ impl Rune {
     }
 }
 
-
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Edict {
     pub id: Arc<RuneId>,
     pub amount: u64,
     pub output: u32,
 }
-
 
 impl Tag {
     fn take<const N: usize, T>(
@@ -131,8 +126,10 @@ fn integers(payload: &[u8]) -> Result<Vec<u128>, RuneParseError> {
     let mut i = 0;
 
     while i < payload.len() {
-        let (integer, length) = varint::decode(&payload[i..])
-            .map_err(|err| RuneParseError::DecodePayload { error_message: err.to_string() })?;
+        let (integer, length) =
+            varint::decode(&payload[i..]).map_err(|err| RuneParseError::DecodePayload {
+                error_message: err.to_string(),
+            })?;
         integers.push(integer);
         i += length;
     }
@@ -168,7 +165,7 @@ pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseEr
     }
 
     let Ok(integers) = integers(&payload) else {
-        return Err(RuneParseError::NoRune)
+        return Err(RuneParseError::NoRune);
     };
     let mut edicts = Vec::new();
     let mut fields = HashMap::<u128, VecDeque<u128>>::new();
@@ -192,7 +189,9 @@ pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseEr
                 let edict = Edict {
                     id: Arc::new(next.clone()),
                     amount: chunk[2] as u64,
-                    output: chunk[3].try_into().map_err(|err| RuneParseError::U128Tou32)?,
+                    output: chunk[3]
+                        .try_into()
+                        .map_err(|err| RuneParseError::U128Tou32)?,
                 };
 
                 id = next.clone();
@@ -214,7 +213,9 @@ pub fn extract_rune_from_script(script: Arc<Script>) -> Result<Rune, RuneParseEr
     if let Some(mint) = Tag::Mint.take(&mut fields, |[block, tx]| {
         RuneId::new(block.try_into().ok()?, tx.try_into().ok()?).ok()
     }) {
-        return Ok(Rune::Etching { rune_id: Arc::new(mint) });
+        return Ok(Rune::Etching {
+            rune_id: Arc::new(mint),
+        });
     }
 
     Ok(Rune::Nothing)

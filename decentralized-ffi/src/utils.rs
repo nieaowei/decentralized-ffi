@@ -6,8 +6,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::testnet4::Network;
-use bdk_wallet::bitcoin::TxOut as BDKTxOut;
+use bdk_wallet::bitcoin::{Network, TxOut as BDKTxOut};
 use bdk_wallet::bitcoin::{TxIn as BDKTxIn, Witness};
 use bdk_wallet::serde_json;
 use chrono::SecondsFormat;
@@ -126,7 +125,7 @@ pub fn get_json_info_from_url(
         })?;
         let data =
             path.find(
-                &serde_json::Value::from_str(&json).map_err(|e| UtilsError::JsonPath {
+                &serde_json::Value::from_str(json).map_err(|e| UtilsError::JsonPath {
                     error_message: e.to_string(),
                 })?,
             );
@@ -179,6 +178,6 @@ pub fn extract_contact_from_csv_data(
 #[cfg(test)]
 mod tests {
     fn get_esplora_client() -> crate::esplora::EsploraClient {
-        crate::esplora::EsploraClient::new("https://mempool.space/api".to_string())
+        crate::esplora::EsploraClient::new("https://mempool.space/api".to_string(),None)
     }
 }

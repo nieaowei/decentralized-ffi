@@ -81,7 +81,7 @@ fn build_snipe_rune_psbt(
     for (txin, prevout, txout) in snipe_utxo_pairs {
         inputs.push({
             TxIn {
-                previous_output: txin.previous_output.clone(),
+                previous_output: txin.previous_output,
                 sequence: txin.sequence,
                 ..Default::default()
             }
@@ -398,7 +398,7 @@ fn build_snipe_inscription_psbt(
     for (txin, prevout, txout) in snipe_utxo_pairs {
         inputs.push({
             TxIn {
-                previous_output: txin.previous_output.clone(),
+                previous_output: txin.previous_output,
                 sequence: txin.sequence,
                 ..Default::default()
             }
