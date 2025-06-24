@@ -15,11 +15,11 @@ NEW_HEADER_DIR="../decentralized-ffi/target/include"
 # set required rust version and install component and targets
 rustup default stable
 rustup component add rust-src
-rustup target add aarch64-apple-ios      # iOS arm64
-rustup target add x86_64-apple-ios       # iOS x86_64
-rustup target add aarch64-apple-ios-sim  # simulator mac M1
-rustup target add aarch64-apple-darwin   # mac M1
-rustup target add x86_64-apple-darwin    # mac x86_64
+rustup target add aarch64-apple-ios # iOS arm64
+rustup target add x86_64-apple-ios # iOS x86_64
+rustup target add aarch64-apple-ios-sim # simulator mac M1
+rustup target add aarch64-apple-darwin # mac M1
+rustup target add x86_64-apple-darwin # mac x86_64
 
 cd ../decentralized-ffi/ || exit
 
@@ -45,17 +45,17 @@ cd ../decentralized-swift/ || exit
 mkdir -p "${NEW_HEADER_DIR}"
 mv "${HEADERPATH}" "${NEW_HEADER_DIR}"
 mv "${MODMAPPATH}" "${NEW_HEADER_DIR}/module.modulemap"
-echo -e "\n" >> "${NEW_HEADER_DIR}/module.modulemap"
+echo -e "\n" >>"${NEW_HEADER_DIR}/module.modulemap"
 
 # remove old xcframework directory
 rm -rf "${OUTDIR}/${NAME}.xcframework"
 
 # create new xcframework directory from bdk-ffi static libs and headers
 xcodebuild -create-xcframework \
-    -library "${TARGETDIR}/lipo-macos/${RELDIR}/${STATIC_LIB_NAME}" \
-    -headers "${NEW_HEADER_DIR}" \
-    -library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" \
-    -headers "${NEW_HEADER_DIR}" \
-    -library "${TARGETDIR}/lipo-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" \
-    -headers "${NEW_HEADER_DIR}" \
-    -output "${OUTDIR}/${NAME}.xcframework"
+-library "${TARGETDIR}/lipo-macos/${RELDIR}/${STATIC_LIB_NAME}" \
+-headers "${NEW_HEADER_DIR}" \
+-library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" \
+-headers "${NEW_HEADER_DIR}" \
+-library "${TARGETDIR}/lipo-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" \
+-headers "${NEW_HEADER_DIR}" \
+-output "${OUTDIR}/${NAME}.xcframework"
