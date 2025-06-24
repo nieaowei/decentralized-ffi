@@ -313,6 +313,10 @@ impl Address {
             _ => unimplemented!("Unsupported address type"),
         }
     }
+
+    fn minimal_non_dust(&self) -> Amount {
+        Amount(self.0.script_pubkey().minimal_non_dust())
+    }
 }
 
 impl Display for Address {
