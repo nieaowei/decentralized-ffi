@@ -525,11 +525,15 @@ impl Psbt {
     }
 
     pub(crate) fn extract_tx_unchecked_fee_rate(&self) -> Arc<Transaction> {
-        let tx: BdkTransaction = self.0.lock().unwrap().clone().extract_tx_unchecked_fee_rate();
+        let tx: BdkTransaction = self
+            .0
+            .lock()
+            .unwrap()
+            .clone()
+            .extract_tx_unchecked_fee_rate();
         let transaction: Transaction = tx.into();
         Arc::new(transaction)
     }
-
 
     /// Calculates transaction fee.
     ///

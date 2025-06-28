@@ -13,10 +13,10 @@ use brotli::enc::{writer::CompressorWriter, BrotliEncoderParams};
 use ciborium::Value;
 use http::header::HeaderValue;
 use io::{Cursor, Read, Write};
-use std::convert::TryFrom;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 use crate::ordinal::inscription::{envelope, inscription_id::InscriptionId, media::Media};
 
@@ -37,7 +37,7 @@ pub struct Inscription {
 fn get_inscription_content_size_limit(network: &Network) -> Option<usize> {
     match network {
         Network::Bitcoin | Network::Regtest => None,
-        Network::Signet | Network::Testnet => Some(1024),
+        Network::Signet | Network::Testnet | Network::Testnet4 => Some(1024),
         _ => unreachable!(),
     }
 }
