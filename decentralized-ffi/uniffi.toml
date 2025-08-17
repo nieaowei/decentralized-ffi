@@ -8,6 +8,8 @@ cdylib_name = "deffi"
 [bindings.swift]
 module_name = "DecentralizedFFI"
 cdylib_name = "deffi"
+generate_codable_conformance = true
+generate_case_iterable_conformance = true
 
 [bindings.kotlin.external_packages]
 # Map the crate names from [External={name}] into Kotlin package names

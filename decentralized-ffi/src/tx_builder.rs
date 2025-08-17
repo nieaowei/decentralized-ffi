@@ -557,6 +557,7 @@ impl BumpFeeTxBuilder {
             tx_builder.version(version);
         }
 
+
         let psbt: BdkPsbt = tx_builder.finish()?;
 
         Ok(Arc::new(psbt.into()))

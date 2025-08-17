@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![allow(unused)]
 mod bitcoin;
 mod descriptor;
 mod electrum;
@@ -8,7 +9,6 @@ mod keys;
 mod kyoto;
 mod ordinal;
 mod store;
-mod testnet4;
 mod tx_builder;
 mod types;
 mod wallet;

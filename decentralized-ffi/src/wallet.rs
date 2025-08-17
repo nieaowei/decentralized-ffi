@@ -7,14 +7,15 @@ use crate::error::{
 use crate::store::{PersistenceType, Persister};
 use crate::types::{
     AddressInfo, Balance, BlockId, CanonicalTx, FullScanRequestBuilder, KeychainAndIndex,
-    LocalOutput, Policy, SentAndReceivedValues, SignOptions, SyncRequestBuilder, UnconfirmedTx,
-    Update,
+    LocalOutput, Policy, SentAndReceivedValues, SignOptions, SyncRequestBuilder, TxDetails,
+    UnconfirmedTx, Update,
 };
 
 use bdk_wallet::bitcoin::Network;
 use bdk_wallet::signer::SignOptions as BdkSignOptions;
 use bdk_wallet::{KeychainKind, PersistedWallet, Wallet as BdkWallet};
 
+use bdk_electrum::bdk_core::bitcoin::SignedAmount;
 use bdk_electrum::bdk_core::ConfirmationBlockTime;
 use bdk_wallet::chain::tx_graph::ChangeSet;
 use std::ops::DerefMut;
@@ -358,6 +359,53 @@ impl Wallet {
             .collect()
     }
 
+    pub fn transaction_details(&self) -> Vec<TxDetails> {
+        let wallet = self.get_wallet();
+
+        wallet
+            .transactions_sort_by(|tx1, tx2| tx2.chain_position.cmp(&tx1.chain_position))
+            .into_iter()
+            .map(CanonicalTx::from)
+            .map(|tx| {
+                let sent = wallet.sent_and_received(&tx.transaction.0);
+                let fee = wallet.calculate_fee(&tx.transaction.0).ok();
+                let fee_rate = wallet.calculate_fee_rate(&tx.transaction.0).ok();
+
+                let balance_delta = wallet.spk_index().net_value(&tx.transaction.0, ..);
+
+                let can_rbf = tx.transaction.is_explicitly_rbf()
+                    && tx.transaction.input().iter().any(|input| {
+                        let Some(txout) = wallet
+                            .tx_graph()
+                            .get_txout(input.previous_output.clone().into())
+                        else {
+                            return false;
+                        };
+                        wallet.is_mine(txout.script_pubkey.clone())
+                    });
+
+                let can_cpfp = tx
+                    .transaction
+                    .output()
+                    .iter()
+                    .any(|output| wallet.is_mine(output.script_pubkey.0.clone()));
+
+                TxDetails {
+                    txid: tx.transaction.compute_txid(),
+                    sent: Arc::new(sent.0.into()),
+                    received: Arc::new(sent.1.into()),
+                    fee: fee.map(|f| Arc::new(f.into())),
+                    fee_rate: fee_rate.map(|fr| fr.to_sat_per_vb_ceil() as f32),
+                    balance_delta: Arc::new(balance_delta.into()),
+                    chain_position: tx.chain_position,
+                    tx: tx.transaction,
+                    can_rbf,
+                    can_cpfp,
+                }
+            })
+            .collect()
+    }
+
     /// Get a single transaction from the wallet as a [`WalletTx`] (if the transaction exists).
     ///
     /// `WalletTx` contains the full transaction alongside meta-data such as:
@@ -485,10 +533,31 @@ impl Wallet {
     pub fn public_descriptor(&self, keychain: KeychainKind) -> String {
         self.get_wallet().public_descriptor(keychain).to_string()
     }
+
+    pub fn create_tx_details(&self, tx: &Transaction) -> TxDetails {
+        let sent_and_received = self.sent_and_received(tx);
+        let fee = self.calculate_fee(tx).ok();
+        let fee_rate = self.calculate_fee_rate(tx).ok();
+
+        let balance_delta = self.get_wallet().spk_index().net_value(&tx.0, ..);
+
+        TxDetails {
+            txid: tx.compute_txid(),
+            sent: sent_and_received.sent,
+            received: sent_and_received.received,
+            fee,
+            fee_rate: fee_rate.map(|fr| fr.to_sat_per_vb_ceil() as f32),
+            balance_delta: Arc::new(balance_delta.into()),
+            chain_position: crate::types::ChainPosition::Unconfirmed { timestamp: Some(0) },
+            tx: Arc::new(tx.clone()),
+            can_rbf: false,
+            can_cpfp: false,
+        }
+    }
 }
 
 impl Wallet {
-    pub(crate) fn get_wallet(&self) -> MutexGuard<PersistedWallet<PersistenceType>> {
+    pub(crate) fn get_wallet(&self) -> MutexGuard<'_, PersistedWallet<PersistenceType>> {
         self.inner_mutex.lock().expect("wallet")
     }
 }

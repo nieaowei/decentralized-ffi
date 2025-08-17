@@ -26,6 +26,7 @@ use bdk_wallet::bitcoin::OutPoint as BdkOutPoint;
 use bdk_wallet::bitcoin::OutPoint as BitcoinOutPoint;
 use bdk_wallet::bitcoin::Psbt as BdkPsbt;
 use bdk_wallet::bitcoin::ScriptBuf as BdkScriptBuf;
+use bdk_wallet::bitcoin::SignedAmount as BitcoinSignedAmount;
 use bdk_wallet::bitcoin::Transaction as BdkTransaction;
 use bdk_wallet::bitcoin::TxIn as BdkTxIn;
 use bdk_wallet::bitcoin::TxOut as BdkTxOut;
@@ -332,7 +333,7 @@ impl_into_core_type!(Address, BdkAddress);
 /// An authenticated movement of coins.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Object, Hash)]
 #[uniffi::export(Debug, Eq, Hash)]
-pub struct Transaction(BdkTransaction);
+pub struct Transaction(pub BdkTransaction);
 
 #[uniffi::export]
 impl Transaction {
@@ -749,6 +750,22 @@ pub struct TxMerkleNode(pub(crate) BitcoinDoubleSha256Hash);
 
 impl_hash_like!(TxMerkleNode, BitcoinDoubleSha256Hash);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, std::hash::Hash, uniffi::Object)]
+#[uniffi::export(Debug, Eq, Hash)]
+pub struct SignedAmount(BitcoinSignedAmount);
+
+#[uniffi::export]
+impl SignedAmount {
+    pub fn to_sat(&self) -> i64 {
+        self.0.to_sat()
+    }
+    pub fn to_btc(&self) -> f64 {
+        self.0.to_btc()
+    }
+}
+
+impl_from_core_type!(BitcoinSignedAmount, SignedAmount);
+impl_into_core_type!(SignedAmount, BitcoinSignedAmount);
 #[cfg(test)]
 mod tests {
     use crate::bitcoin::Address;

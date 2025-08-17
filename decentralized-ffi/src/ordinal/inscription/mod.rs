@@ -2,7 +2,6 @@ use crate::ordinal::inscription::{
     batch::Mode, inscription::Inscription, inscription_id::InscriptionId,
 };
 
-use crate::testnet4;
 use crate::types::LocalOutput;
 use anyhow::{bail, Context, Result};
 use bdk_wallet::bitcoin::transaction::Version;
@@ -661,7 +660,7 @@ impl Batch {
             .expect("should find sat commit/inscription output");
 
         reveal_inputs[commit_input] = OutPoint {
-            txid: psbt_tx.unsigned_tx.txid(),
+            txid: psbt_tx.unsigned_tx.compute_txid(),
             vout: vout.try_into().unwrap(),
         };
 
@@ -700,7 +699,7 @@ impl Batch {
             .expect("signature hash should compute");
 
         let sig = secp256k1.sign_schnorr(
-            &secp256k1::Message::from_slice(sighash.as_ref())
+            &secp256k1::Message::from_digest_slice(sighash.as_ref())
                 .expect("should be cryptographically secure hash"),
             &key_pair,
         );
@@ -722,7 +721,7 @@ impl Batch {
 
         let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
-        let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
+        let (x_only_pub_key, _parity) = recovery_key_pair.to_keypair().x_only_public_key();
         assert_eq!(
             Address::p2tr_tweaked(
                 TweakedPublicKey::dangerous_assume_tweaked(x_only_pub_key),
