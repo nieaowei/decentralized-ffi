@@ -1,9 +1,8 @@
 [package]
 name = "decentralized-ffi"
-version = "2.0.0"
-homepage = "https://bitcoindevkit.org"
-repository = "https://github.com/bitcoindevkit/bdk"
-edition = "2018"
+version = "2.0.1"
+repository = "https://github.com/nieaowei/decentralized-ffi"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [lib]
@@ -63,7 +62,7 @@ mp4 = "0.14.0"
 csv = "1.3.1"
 
 [build-dependencies]
-uniffi = { version = "=0.29.3", features = ["build"] }
+uniffi = { version = "=0.29.3", features = ["build","cli"] }
 
 [dev-dependencies]
 uniffi = { version = "=0.29.3", features = ["bindgen-tests"] }

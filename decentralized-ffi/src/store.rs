@@ -1,7 +1,7 @@
 use crate::error::PersistenceError;
 use crate::types::ChangeSet;
 
-use bdk_wallet::{rusqlite::Connection as BdkConnection, WalletPersister};
+use bdk_wallet::{WalletPersister, rusqlite::Connection as BdkConnection};
 
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
@@ -61,7 +61,7 @@ impl WalletPersister for PersistenceType {
 
     fn initialize(persister: &mut Self) -> Result<bdk_wallet::ChangeSet, Self::Error> {
         match persister {
-            PersistenceType::Sql(ref conn) => {
+            PersistenceType::Sql(conn) => {
                 let mut lock = conn.lock().unwrap();
                 let deref = lock.deref_mut();
                 Ok(BdkConnection::initialize(deref)?)
@@ -74,7 +74,7 @@ impl WalletPersister for PersistenceType {
 
     fn persist(persister: &mut Self, changeset: &bdk_wallet::ChangeSet) -> Result<(), Self::Error> {
         match persister {
-            PersistenceType::Sql(ref conn) => {
+            PersistenceType::Sql(conn) => {
                 let mut lock = conn.lock().unwrap();
                 let deref = lock.deref_mut();
                 Ok(BdkConnection::persist(deref, changeset)?)
